@@ -1,0 +1,98 @@
+
+project.ext {
+
+  cfgVersion = '2.2.1'
+  
+  cfgGroup = 'org.openmuc'
+
+  cfgCopyDependencies = true
+
+  cfgCopyToRoot = false
+
+  cfgSignPom = true
+
+  cfgRepository = project.properties.sonatypeRepository
+
+  cfgSnapshotRepository = project.properties.sonatypeSnapshotRepository
+
+  cfgRepositoryUser = project.properties.sonatypeUser
+
+  cfgRepositoryPass = project.properties.sonatypePass
+
+  javaProjects = allprojects
+
+  distributionProjects = allprojects.findAll {
+    it.getPath() == ':'
+  }
+ 
+  docProjects = distributionProjects
+
+  repositoryProjects = distributionProjects
+}
+
+tasks.withType(Tar) {
+
+  into(project.name) {
+    from('./') {
+      include 'build.gradle'
+      include 'configuration.gradle'
+      include 'license/**'
+      include 'doc/*.txt'
+      include 'doc/userguide/' + project.name + '-doc*.html'
+      include 'doc/userguide/' + project.name + '-doc_img/**'
+      include 'run-scripts/**'
+      include 'build/libs-all/**'
+      include 'build/docs/javadoc/**'
+      include 'dependencies/**'
+      include 'src/**'
+    }
+
+    if (name.equals("tar") ){
+      exclude '**/dependencies/**/src'
+    }
+
+  }
+}
+
+
+//------------------project specific configurations--------------------
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'osgi'
+apply plugin: 'maven'
+apply plugin: 'signing'
+
+
+dependencies {
+  compile files('dependencies/rxtx/rxtxcomm_api-2.2pre2.jar')
+  //compile files('dependencies/jrxtx/jrxtx-0.0.1-SNAPSHOT.jar')
+}
+
+jar {
+  manifest {
+    name = 'jMBus'
+    instruction 'Export-Package', '!*.internal.*,*'
+  }
+}
+
+uploadArchives {
+  repositories {
+    mavenDeployer {
+      pom.project {
+        name 'jMBus'
+        description 'jMBus is a library that can be used to implement M-Bus masters or wireless M-Bus receivers that read meters.'
+        
+        licenses {
+          license {
+            name 'GNU General Public License'
+            url 'http://www.gnu.org/copyleft/gpl-3.0.html'
+            distribution 'repo'
+          }
+        }
+        
+      }
+    }
+  }
+}
+

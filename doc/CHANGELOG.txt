@@ -1,0 +1,102 @@
+v2.2.1 26-Feb-2016
+------------------
+- increased default timeout from 300ms to 500ms because it was too
+  short for many meters
+- made timeout configurable in all console applications
+- inserted sleep between SND_NKE and REQ_UD2 requests in ReadMeter and
+  ScanMeter console apps because some meters would otherwise discard
+  the REQ_UD2 request
+- fixed decoding subunit, tariff and storage number from DIFEs
+- added support for decoding new data records defined in EN
+  13757-3-2013
+
+v2.2.0 18-Nov-2015
+------------------
+- added support for writing to meters
+- added a command-line application for writing to meters
+- added support for scanning secondary addresses
+- refactored decoding function to improve performance
+- added support for Float32 decoding
+- several minor improvements
+- added possibility to select certain records/registers for readout
+- changed from java 6 to java 7
+
+v2.1.0 21-Jan-2015
+------------------
+- added support for secondary addressing using wired M-Bus
+
+v2.0.0 02-Dec-2014
+------------------
+- changed license from LGPL to GPLv3 or higher
+- added support for wireless M-Bus. Transceivers supported are from Amber
+  and RadioCrafts
+- API clean up, for better understanding
+- added detailed user guide on how M-Bus works and how jMBus is used.
+
+v1.3 17-Jul-2014
+----------------
+- added decoding support for more VIBs and DIBS
+- fixed build script to work with newest gradle
+- fixed support for two digit BCDs
+- BCD now extends class Number again
+- added run script for ScanForMeters app
+- added thorough description on how to get RXTX running
+- RXTX src + native libs are now included in the distribution
+- added documentation on how to compile your own nativ part of RXTX.
+- added integration tests for better testing
+
+v1.2 16-Jan-2014
+----------------
+- ScanForMeter application added that can be used to scan all primary
+  addresses for meters
+- fix parsing manufacturer id
+- added decoding of alternate exteded VIFE field
+- ReadMeter application now prints more valuable information
+
+v1.1.1 09-Jan-2014
+------------------
+- reinserted TimeoutException when reading
+- releasing to maven central repository
+
+v1.0.0 07-Jan-2014
+------------------
+- bug fix parsing manufacturer specific data
+- simple ReadMeter application is now part of the library. Its usage
+  is documented in README.txt
+- serialports can be closed and opened again through the API
+- DLMSUnit is now an Enum
+
+v0.10.0 04-Sep-2013
+-------------------
+- read now supports timeouts
+- serial port settings string is correctly parsed
+- data type can now be retrieved from DIF/VIF
+- finding correct serial port is now more efficient
+- bug fix in decoding DIF/VIF
+
+v0.9.8 15-Mar-2012
+------------------
+- changed build system to gradle
+- modified documentation and usage example
+
+v0.9.7 20-Oct-2011
+------------------
+- short message is send in one command in MBusLSAP to prevent timeout,
+  thanks to Hakan Gonene
+
+v0.9.6 19-Sep-2011
+------------------
+- added additional data types: data, date/time, varlen string
+- moved to maven
+
+v0.9.4 3-Dec-2010
+-----------------
+- Fixed build.xml file so a modfied library can be easily build.
+- Fixed some bugs when parsing M-Bus messages
+
+v0.9.3 17-Nov-2010 
+------------------
+- Fixed bug with integer treatment
+- Implemented application reset command
+- added voltage and current VIB interpretation
+- Debug output switch with org.openmuc.jmbus.debug system property
