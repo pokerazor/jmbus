@@ -39,6 +39,8 @@ public class WMBusSapAmber extends AbstractWMBusSap {
     private class MessageReceiver extends Thread {
 
         private final ExecutorService executor = Executors.newSingleThreadExecutor();
+        
+        private int discardCount = 0;
 
         @Override
         public void run() {
@@ -148,6 +150,7 @@ public class WMBusSapAmber extends AbstractWMBusSap {
         }
 
         private void discard(int offset, int length) {
+        	discardCount++;
             final byte[] discardedBytes = new byte[length];
             System.arraycopy(inputBuffer, offset, discardedBytes, 0, length);
 
@@ -157,6 +160,16 @@ public class WMBusSapAmber extends AbstractWMBusSap {
                     listener.discardedBytes(discardedBytes);
                 }
             });
+            
+            if(discardCount>=5){
+                executor.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        reset();
+                    }
+                });
+                discardCount=0;
+            }
         }
     }
 
@@ -235,7 +248,7 @@ public class WMBusSapAmber extends AbstractWMBusSap {
 
         return true;
     }
-
+    
     private boolean amberSetReg(byte reg, byte value) {
         byte[] data = new byte[3];
         data[0] = reg;
@@ -266,5 +279,12 @@ public class WMBusSapAmber extends AbstractWMBusSap {
 
         return true;
     }
+    
+	public void reset(){
+    	byte[] rst = new byte[0];
+    	writeCommand((byte) 0x05, rst);
+    	System.out.println("Reset");
+	}
+
 
 }

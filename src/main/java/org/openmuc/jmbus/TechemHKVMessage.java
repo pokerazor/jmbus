@@ -20,14 +20,15 @@
  */
 package org.openmuc.jmbus;
 
-import java.time.LocalDate;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 
 /**
  * 
- * Represents a Techem Heizkostenverteiler Message
- * 
+ * Represents a Message of a Techem Heizkostenverteiler (heat cost allocator)
  *
  */
 public class TechemHKVMessage extends WMBusMessage{
@@ -37,16 +38,17 @@ public class TechemHKVMessage extends WMBusMessage{
 
 	int ciField;
 	String status="";
-	LocalDate lastDate=null;
-	LocalDate curDate=null;
+	Calendar lastDate=null;
+	Calendar curDate=null;
 	int lastVal=-1;
 	int curVal=-1;
 	float t1=-1;
 	float t2=-1;
 	byte[] historyBytes=new byte[27];
 	String history="";
-
 	
+	SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+
 	public TechemHKVMessage(WMBusMessage originalMessage){
 		this(originalMessage.asBytes(),originalMessage.getRssi(),originalMessage.keyMap);
 	}
@@ -92,39 +94,48 @@ public class TechemHKVMessage extends WMBusMessage{
     	float tempint=parseBigEndianInt(i);
     	
     	return tempint/100;
-    	//return String.format("%.2f", tempint / 100)+"°C";
+    	//return String.format("%.2f", tempint / 100)+"ï¿½C";
     }
     
-    private LocalDate parseLastDate(int i){
+    private Calendar parseLastDate(int i){
     	int dateint=parseBigEndianInt(i);
 
         int day = (dateint >> 0) & 0x1F;
         int month = (dateint >> 5) & 0x0F;
         int year = (dateint >> 9) & 0x3F;
     	
-        return LocalDate.of(2000+year, month, day);
+//        return LocalDate.of(2000+year, month, day);
+        Calendar calendar = new GregorianCalendar();
+        calendar.set(Calendar.YEAR, 2000+year);
+        calendar.set(Calendar.MONTH, month-1);
+        calendar.set(Calendar.DAY_OF_MONTH, day);
+
+        return calendar;
     }
     
-    private LocalDate parseCurrentDate(int i){
+    private Calendar parseCurrentDate(int i){
     	int dateint=parseBigEndianInt(i);
 
         int day = (dateint >> 4) & 0x1F;
         int month = (dateint >> 9) & 0x0F;
 //        int year = (dateint >> 13) & 0x07;
-        return LocalDate.of( LocalDate.now().getYear(), month, day);
+        Calendar calendar = new GregorianCalendar();
+        calendar.set(calendar.get(Calendar.YEAR), month-1, day);
+        return calendar;
+//        return LocalDate.of( LocalDate.now().getYear(), month, day);
     }
 
     public String renderTechemFields() {
     	String s = "";
     	
-		s+="Last Date: "+lastDate;
+		s+="Last Date: "+dateFormat.format(lastDate.getTime());
 		s+=", Last Value: "+lastVal;
 		
-		s+=", Current Date: "+curDate;
+		s+=", Current Date: "+dateFormat.format(curDate.getTime());
 		s+=", Current Value: "+curVal;
 
-		s+=", T1: "+String.format("%.2f", t1)+"°C";
-		s+=", T2: "+String.format("%.2f", t2)+"°C";
+		s+=", T1: "+String.format("%.2f", t1)+"ï¿½C";
+		s+=", T2: "+String.format("%.2f", t2)+"ï¿½C";
 
 		s+=", History: "+ history;
     	return s;
@@ -132,48 +143,30 @@ public class TechemHKVMessage extends WMBusMessage{
     
     @Override
     public String toString() {
+    	
         StringBuilder builder = new StringBuilder();
-        if (getRssi() != null) {
-       //     builder.append("Message was received with signal strength: ").append(getRssi()).append("dBm\n");
-        }
         if (getVariableDataResponse()==null) {
-            builder.append("Message has not been decoded. Bytes of this message:\n");
+            builder.append("Message has not been decoded. Bytes of this message: ");
             HexConverter.appendHexString(builder, buffer, 0, buffer.length);
             return builder.toString();
         } else {
-      //      builder.append("control field: ");
-            HexConverter.appendHexString(getControlField(), builder);
-     //       builder.append("\nSecondary Address -> ")
-       //             .append(getSecondaryAddress())
-                    //.append("\nVariable Data Response:\n")
-                    //.append(vdr)
-        //            .append("\nMessage is Techem Heizkörperverteiler Message\n")
-           //         .append(renderTechemFields());
-
-//            return builder.toString();
-            return renderCSV();
-
+            builder.append(new Date())
+		            .append(";").append(getRssi())
+		            .append(";").append(getControlField())
+		            .append(";").append(getSecondaryAddress().getManufacturerId())
+		            .append(";").append(getSecondaryAddress().getDeviceId())
+		            .append(";").append(getSecondaryAddress().getVersion())
+		            .append(";").append(getSecondaryAddress().getDeviceType())
+		            .append(";").append(ciField)
+		            .append(";").append(status)
+		            .append(";").append(dateFormat.format(lastDate.getTime()))
+		            .append(";").append(lastVal)
+		            .append(";").append(dateFormat.format(curDate.getTime()))
+		            .append(";").append(curVal)
+		            .append(";").append(t1)
+		            .append(";").append(t2)
+		            .append(";").append(history);
+            return builder.toString();
         }
     }
-    
-    String renderCSV(){
-        StringBuilder builder = new StringBuilder();
-        builder.append(new Date())
-               .append(";").append(getRssi())
-               .append(";").append(getControlField())
-               .append(";").append(getSecondaryAddress().getManufacturerId())
-               .append(";").append(getSecondaryAddress().getDeviceId())
-               .append(";").append(getSecondaryAddress().getVersion())
-               .append(";").append(getSecondaryAddress().getDeviceType())
-               .append(";").append(lastDate)
-               .append(";").append(lastVal)
-               .append(";").append(curDate)
-               .append(";").append(curVal)
-               .append(";").append(t1)
-               .append(";").append(t2)
-               .append(";").append(history);
-
-        return builder.toString();
-    }
-
 }

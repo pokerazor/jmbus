@@ -41,12 +41,14 @@ import org.openmuc.jmbus.WMBusSapRadioCrafts;
  */
 public class TechemReceiver extends WMBusReceiver{
     private static boolean debugMode = false ;
+    
+	int[] filterIDs = {92313948, 92363681, 92363684, 92363682, 92363688, 92363734};
 
 	private static void printUsage() {
         System.out.println(
-                "SYNOPSIS\n\torg.openmuc.jmbus.app.WMBusReceiver <serial_port> <transceiver> <mode> [--debug] [<secondary_address>:<key>...]");
+                "SYNOPSIS\n\torg.openmuc.jmbus.app.TechemReceiver <serial_port> <transceiver> <mode> [--debug] [<secondary_address>:<key>...]");
         System.out.println(
-                "DESCRIPTION\n\tListens using a wireless M-Bus transceiver on the given serial port for wireless M-bus messages and prints them to stdout. Errors are printed to stderr.");
+                "DESCRIPTION\n\tListens using a wireless M-Bus transceiver on the given serial port for proprietary Techem heat cost allocator wireless M-bus messages and prints them to stdout. Errors are printed to stderr.");
         System.out.println("OPTIONS");
         System.out.println(
                 "\t<serial_port>\n\t    The serial port used for communication. Examples are /dev/ttyS0 (Linux) or COM1 (Windows)\n");
@@ -130,24 +132,36 @@ public class TechemReceiver extends WMBusReceiver{
         });
 
     }
+    
+    boolean filterMatch(int inQuestion){
+    	if(filterIDs.length==0){
+    		return true;
+    	}
+    	for (int i = 0; i < filterIDs.length; i++) {
+			if(filterIDs[i]==inQuestion){
+				return true;
+			}
+		}
+    	return false;
+    }
 	
 
     @Override
     public void newMessage(WMBusMessage message) {
         try {
             message.decodeDeep();
-            System.out.println(message.toString());
-
+            if(filterMatch(message.getSecondaryAddress().getDeviceId().intValue())){
+                System.out.println(message.toString());
+            }
         } catch (DecodingException e) {
-        	int ciField=message.asBytes()[10]  & 0xff;
-        	if (ciField ==  0xa0 && message.getSecondaryAddress().getManufacturerId().equals("TCH")	){
+        	byte[] messageBytes=message.asBytes();
+        	if (messageBytes.length==51 && (messageBytes[10] & 0xff) ==  0xa0 && message.getSecondaryAddress().getManufacturerId().equals("TCH")	){
         		newMessage(new TechemHKVMessage(message));
+        	} else {
+               System.out.println("Unable to fully decode received message: " + e.getMessage());
+               System.out.println(message.toString());
         	}
-
-//            System.out.println("Unable to fully decode received message: " + e.getMessage());
         }
-
-//        System.out.println(message.toString());
     }
 
     @Override
@@ -159,5 +173,4 @@ public class TechemReceiver extends WMBusReceiver{
     public void stoppedListening(IOException e) {
         System.out.println("Stopped listening for new messages because: " + e.getMessage());
     }
-
 }
