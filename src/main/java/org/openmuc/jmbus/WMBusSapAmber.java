@@ -283,7 +283,7 @@ public class WMBusSapAmber extends AbstractWMBusSap {
 	public void reset(){
     	byte[] rst = new byte[0];
     	writeCommand((byte) 0x05, rst);
-    	System.out.println("Reset");
+//    	System.out.println("Reset");
 	}
 
 

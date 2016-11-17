@@ -33,8 +33,7 @@ import java.util.HashMap;
  */
 public class TechemHKVMessage extends WMBusMessage{
 
-    private VariableDataStructure vdr;
-    private final byte[] buffer;
+    private final byte[] hkvBuffer;
 
 	int ciField;
 	String status="";
@@ -55,7 +54,7 @@ public class TechemHKVMessage extends WMBusMessage{
     
     TechemHKVMessage(byte[] buffer, Integer signalStrengthInDBm, HashMap<String, byte[]> keyMap) {
         super(buffer,signalStrengthInDBm, keyMap);
-    	this.buffer=buffer;
+    	this.hkvBuffer=buffer;
     }
 
     @Override
@@ -64,12 +63,11 @@ public class TechemHKVMessage extends WMBusMessage{
         	super.decodeDeep();
         } catch (DecodingException e) {
         	int offset=10;
-        	vdr=getVariableDataResponse();
         	
-    		ciField=buffer[offset+0]  & 0xff;
+    		ciField=hkvBuffer[offset+0]  & 0xff;
     		
         	if (ciField ==  0xa0 && getSecondaryAddress().getManufacturerId().equals("TCH")	){
-        		status=HexConverter.toShortHexString(buffer[offset+1]);
+        		status=HexConverter.toShortHexString(hkvBuffer[offset+1]);
         		lastDate=parseLastDate(offset+2);
         		curDate=parseCurrentDate(offset+6);
         		lastVal=parseBigEndianInt(offset+4);
@@ -77,7 +75,7 @@ public class TechemHKVMessage extends WMBusMessage{
         		t1=parseTemp(offset+10);
         		t2=parseTemp(offset+12);
         		
-        		System.arraycopy(buffer, 24, historyBytes, 0, 27);
+        		System.arraycopy(hkvBuffer, 24, historyBytes, 0, 27);
         		history=HexConverter.toShortHexString(historyBytes);
         		
         	} else {
@@ -87,7 +85,7 @@ public class TechemHKVMessage extends WMBusMessage{
     }
     
     int parseBigEndianInt(int i){
-    	return (buffer[i] & 0xFF)+((buffer[i+1] & 0xFF)<<8);
+    	return (hkvBuffer[i] & 0xFF)+((hkvBuffer[i+1] & 0xFF)<<8);
     }
     
     float parseTemp(int i){    	
@@ -147,7 +145,7 @@ public class TechemHKVMessage extends WMBusMessage{
         StringBuilder builder = new StringBuilder();
         if (getVariableDataResponse()==null) {
             builder.append("Message has not been decoded. Bytes of this message: ");
-            HexConverter.appendHexString(builder, buffer, 0, buffer.length);
+            HexConverter.appendHexString(builder, hkvBuffer, 0, hkvBuffer.length);
             return builder.toString();
         } else {
             builder.append(new Date())
