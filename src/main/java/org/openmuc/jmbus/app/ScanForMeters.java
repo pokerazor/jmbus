@@ -55,8 +55,7 @@ public class ScanForMeters {
         boolean scanSecondaryAddress = false;
 
         if (argsLength < MIN_ARGS_LENGTH || argsLength > MAX_ARGS_LENGTH) {
-            printUsage();
-            System.exit(1);
+            error("Error: too few arguments.", true);
         }
 
         String serialPortName = args[0];
@@ -67,9 +66,9 @@ public class ScanForMeters {
                 try {
                     baudRate = Integer.parseInt(args[++i]);
                 } catch (NumberFormatException e) {
-                    error("Error, the <baud_rate> parameter is not an integer value.");
+                    error("Error, the <baud_rate> parameter is not an integer value.", false);
                 } catch (NullPointerException e) {
-                    error("Error, no baudrate behind -b.");
+                    error("Error, no baudrate behind -b.", false);
                 }
             }
 
@@ -77,9 +76,9 @@ public class ScanForMeters {
                 try {
                     timeout = Integer.parseInt(args[++i]);
                 } catch (NumberFormatException e) {
-                    error("Error, the <timeout> parameter is not an integer value.");
+                    error("Error, the <timeout> parameter is not an integer value.", false);
                 } catch (NullPointerException e) {
-                    error("Error, no timeout behind -t.");
+                    error("Error, no timeout behind -t.", false);
                 }
             }
 
@@ -92,7 +91,8 @@ public class ScanForMeters {
                     else {
                         wildcardMask = args[i];
                         if (wildcardMask.length() != WILDCARD_MASK_LENGTH) {
-                            error("Error, allowed wilcard mask length is " + WILDCARD_MASK_LENGTH + " charactors.");
+                            error("Error, allowed wilcard mask length is " + WILDCARD_MASK_LENGTH + " charactors.",
+                                    false);
                         }
                     }
                 }
@@ -134,7 +134,7 @@ public class ScanForMeters {
                 try {
                     Thread.sleep(50); // for slow slaves
                 } catch (InterruptedException e) {
-                    error("Thread sleep fails.\n" + e.getMessage());
+                    error("Thread sleep fails.\n" + e.getMessage(), false);
                 }
                 mBusSap.read(i);
             } catch (TimeoutException e) {
@@ -151,8 +151,11 @@ public class ScanForMeters {
         }
     }
 
-    private static void error(String errMsg) {
-        System.err.println(errMsg);
+    private static void error(String errMsg, boolean printUsage) {
+        System.err.println(errMsg + "\n");
+        if (printUsage) {
+            printUsage();
+        }
         System.exit(1);
     }
 

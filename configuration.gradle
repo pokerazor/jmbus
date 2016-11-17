@@ -1,7 +1,7 @@
 
 project.ext {
 
-  cfgVersion = '2.2.1'
+  cfgVersion = '2.2.2'
   
   cfgGroup = 'org.openmuc'
 
@@ -37,12 +37,12 @@ tasks.withType(Tar) {
       include 'build.gradle'
       include 'configuration.gradle'
       include 'license/**'
-      include 'doc/*.txt'
-      include 'doc/userguide/' + project.name + '-doc*.html'
-      include 'doc/userguide/' + project.name + '-doc_img/**'
+      include 'doc/CHANGELOG.txt'
       include 'run-scripts/**'
+      include 'gradle/wrapper/**'
+      include 'gradlew'
+      include 'gradlew.bat'
       include 'build/libs-all/**'
-      include 'build/docs/javadoc/**'
       include 'dependencies/**'
       include 'src/**'
     }
@@ -52,6 +52,23 @@ tasks.withType(Tar) {
     }
 
   }
+
+  into(project.name + '/doc/user-guide/') {
+    from('./build/asciidoc/html5/') {
+      include '**'
+    }
+    from('./build/asciidoc/pdf/') {
+      include '**'
+    }
+  }
+
+  into(project.name + '/doc/') {
+    from('./build/docs/') {
+      include 'javadoc/**'
+    }
+  }
+
+
 }
 
 

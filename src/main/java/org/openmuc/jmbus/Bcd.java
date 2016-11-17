@@ -50,20 +50,24 @@ public class Bcd extends Number {
 
     @Override
     public String toString() {
-        byte[] ba;
-        int shift;
-        ba = new byte[value.length * 2];
+        byte[] bytes = new byte[value.length * 2];
         int c = 0;
 
-        for (int i = value.length - 1; i >= 0; i--) {
-            shift = value[i] >> 4;
-            ba[c++] = (byte) ((shift & 0x0f) + 48);
-
-            shift = value[i];
-            ba[c++] = (byte) ((shift & 0x0f) + 48);
+        if ((value[value.length - 1] & 0xf0) == 0xf0) {
+            bytes[c++] = 0x2d;
+        }
+        else {
+            bytes[c++] = (byte) (((value[value.length - 1] >> 4) & 0x0f) + 48);
         }
 
-        return new String(ba);
+        bytes[c++] = (byte) ((value[value.length - 1] & 0x0f) + 48);
+
+        for (int i = value.length - 2; i >= 0; i--) {
+            bytes[c++] = (byte) (((value[i] >> 4) & 0x0f) + 48);
+            bytes[c++] = (byte) ((value[i] & 0x0f) + 48);
+        }
+
+        return new String(bytes);
     }
 
     /**
@@ -90,11 +94,21 @@ public class Bcd extends Number {
         int result = 0;
         int factor = 1;
 
-        for (byte element : value) {
-            result += (element & 0x0f) * factor;
+        for (int i = 0; i < (value.length - 1); i++) {
+            result += (value[i] & 0x0f) * factor;
             factor = factor * 10;
-            result += ((element >> 4) & 0x0f) * factor;
+            result += ((value[i] >> 4) & 0x0f) * factor;
             factor = factor * 10;
+        }
+
+        result += (value[value.length - 1] & 0x0f) * factor;
+        factor = factor * 10;
+
+        if ((value[value.length - 1] & 0xf0) == 0xf0) {
+            result = result * -1;
+        }
+        else {
+            result += ((value[value.length - 1] >> 4) & 0x0f) * factor;
         }
 
         return result;
@@ -108,11 +122,21 @@ public class Bcd extends Number {
         long result = 0l;
         long factor = 1l;
 
-        for (byte element : value) {
-            result += (element & 0x0f) * factor;
+        for (int i = 0; i < (value.length - 1); i++) {
+            result += (value[i] & 0x0f) * factor;
             factor = factor * 10l;
-            result += ((element >> 4) & 0x0f) * factor;
+            result += ((value[i] >> 4) & 0x0f) * factor;
             factor = factor * 10l;
+        }
+
+        result += (value[value.length - 1] & 0x0f) * factor;
+        factor = factor * 10l;
+
+        if ((value[value.length - 1] & 0xf0) == 0xf0) {
+            result = result * -1;
+        }
+        else {
+            result += ((value[value.length - 1] >> 4) & 0x0f) * factor;
         }
 
         return result;

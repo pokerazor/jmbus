@@ -59,8 +59,6 @@ public class ReadMeter {
         int argsLength = args.length;
         if (argsLength < 2) {
             error("Error: too few arguments.", true);
-            printUsage();
-            System.exit(1);
         }
 
         String serialPortName = args[0];
@@ -127,7 +125,7 @@ public class ReadMeter {
                 // argsIndex += 2;
                 // }
                 else {
-                    error("Error, unknown argument.", true);
+                    error("Error: unknown argument.", true);
                 }
 
                 // TODO

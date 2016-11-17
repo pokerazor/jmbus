@@ -16,12 +16,13 @@ public class ScanSecondaryAddress {
     private ScanSecondaryAddress() {
     }
 
-   
     /**
-     *  * Scans for secondary addresses.
+     * * Scans for secondary addresses.
      * 
-     * @param mBusSap the opened mBusSap
-     * @param wildcardMask a wildcard mask for masking
+     * @param mBusSap
+     *            the opened mBusSap
+     * @param wildcardMask
+     *            a wildcard mask for masking
      * @return a list of secondary addresses of all detected devices
      */
     public static List<SecondaryAddress> scan(MBusSap mBusSap, String wildcardMask) {
@@ -36,7 +37,7 @@ public class ScanSecondaryAddress {
             value[i] = Byte.parseByte(wildcardMask.substring(i, i + 1), 16);
         }
 
-        pos = wildcardMask.indexOf("f");
+        pos = wildcardMask.indexOf('f');
         if (pos == 8 || pos < 0) {
             pos = 7;
         }

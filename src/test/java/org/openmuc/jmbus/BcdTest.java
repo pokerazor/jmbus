@@ -28,11 +28,23 @@ public class BcdTest {
     @Test
     public void testSetGetValue() {
 
-        Bcd myBcd = new Bcd(new byte[] { 0x44, 0x44, 0x44, 0x44 });
+        Bcd bcd = new Bcd(new byte[] { 0x44, 0x44, 0x44, 0x44 });
 
-        System.out.println(Integer.MAX_VALUE);
+        Assert.assertEquals(44444444, bcd.intValue());
+        Assert.assertEquals(44444444l, bcd.longValue());
+        Assert.assertEquals("44444444", bcd.toString());
 
-        Assert.assertEquals(44444444, myBcd.intValue());
+        bcd = new Bcd(new byte[] { 0x44, 0x44, 0x44, 0x04 });
+
+        Assert.assertEquals(4444444, bcd.intValue());
+        Assert.assertEquals(4444444l, bcd.longValue());
+        Assert.assertEquals("04444444", bcd.toString());
+
+        bcd = new Bcd(new byte[] { 0x44, 0x44, 0x44, (byte) 0xf4 });
+
+        Assert.assertEquals(-4444444, bcd.intValue());
+        Assert.assertEquals(-4444444l, bcd.longValue());
+        Assert.assertEquals("-4444444", bcd.toString());
 
     }
 

@@ -275,11 +275,12 @@ public class DataRecord {
 
         switch (dataField) {
         case 0x00:
+        case 0x08: /* no data - selection for readout request */
             dataValue = null;
             dataValueType = DataValueType.NONE;
             break;
         case 0x01: /* INT8 */
-            dataValue = new Long(buffer[i++]);
+            dataValue = Long.valueOf(buffer[i++]);
             dataValueType = DataValueType.LONG;
             break;
         case 0x02: /* INT16 */
@@ -298,14 +299,14 @@ public class DataRecord {
                 dataValueType = DataValueType.DATE;
             }
             else {
-                dataValue = new Long((buffer[i++] & 0xff) | ((buffer[i++] & 0xff) << 8));
+                dataValue = Long.valueOf((buffer[i++] & 0xff) | ((buffer[i++] & 0xff) << 8));
                 dataValueType = DataValueType.LONG;
             }
             break;
         case 0x03: /* INT24 */
             if ((buffer[i + 2] & 0x80) == 0x80) {
                 // negative
-                dataValue = new Long(
+                dataValue = Long.valueOf(
                         (buffer[i++] & 0xff) | ((buffer[i++] & 0xff) << 8) | ((buffer[i++] & 0xff) << 16) | 0xff << 24);
             }
             else {
@@ -345,7 +346,7 @@ public class DataRecord {
         case 0x05: /* FLOAT32 */
             Float doubleDatavalue = ByteBuffer.wrap(buffer, i, 4).order(ByteOrder.LITTLE_ENDIAN).getFloat();
             i += 4;
-            dataValue = new Double(doubleDatavalue);
+            dataValue = Double.valueOf(doubleDatavalue);
             dataValueType = DataValueType.DOUBLE;
             break;
         case 0x06: /* INT48 */
@@ -368,10 +369,6 @@ public class DataRecord {
                     | (((long) buffer[i++] & 0xff) << 40) | (((long) buffer[i++] & 0xff) << 48)
                     | (((long) buffer[i++] & 0xff) << 56));
             dataValueType = DataValueType.LONG;
-            break;
-        case 0x08: /* no data - selection for readout request */
-            dataValue = null;
-            dataValueType = DataValueType.NONE;
             break;
         case 0x09:
             dataValue = new Bcd(Arrays.copyOfRange(buffer, i, i + 1));
@@ -1467,8 +1464,6 @@ public class DataRecord {
 
         switch (dataValueType) {
         case DATE:
-            builder.append(", value:").append((dataValue).toString());
-            break;
         case STRING:
             builder.append(", value:").append((dataValue).toString());
             break;
@@ -1492,12 +1487,15 @@ public class DataRecord {
             }
             break;
         case NONE:
-            builder.append(", value: NONE");
+            builder.append(", value:NONE");
             break;
         }
 
         if (unit != null) {
             builder.append(", unit:").append(unit);
+            if (!unit.getUnit().isEmpty()) {
+                builder.append(", ").append(unit.getUnit());
+            }
         }
 
         return builder.toString();

@@ -49,8 +49,7 @@ public class WriteMeter {
 
         int argsLength = args.length;
         if (argsLength < minArgsLength) {
-            printUsage();
-            System.exit(1);
+            error("Error: too few arguments.", true);
         }
 
         String serialPortName = args[0];
@@ -69,19 +68,19 @@ public class WriteMeter {
 
         if (addrLength > 3) {
             if (addrLength != 16) {
-                error("Error, the <secondary_address> has the wrong length. Should be 16 but is " + addrLength, true);
+                error("Error: the <secondary_address> has the wrong length. Should be 16 but is " + addrLength, true);
             }
             try {
                 secondaryAddress = SecondaryAddress.getFromLongHeader(HexConverter.fromShortHexString(address), 0);
             } catch (NumberFormatException e) {
-                error("Error, the <secondary_address> parameter contains non hexadecimal character.", true);
+                error("Error: the <secondary_address> parameter contains non hexadecimal character.", true);
             }
         }
         else {
             try {
                 primaryAddress = Integer.parseInt(address);
             } catch (NumberFormatException e) {
-                error("Error, the <primary_address> parameter is not an integer value.", true);
+                error("Error: the <primary_address> parameter is not an integer value.", true);
             }
         }
 
@@ -97,7 +96,7 @@ public class WriteMeter {
                     try {
                         baudRate = parseIntegerArg(args, argsLength, argsIndex);
                     } catch (NumberFormatException e) {
-                        error("Error, the <baud_rate> parameter is not an integer value.", true);
+                        error("Error: the <baud_rate> parameter is not an integer value.", true);
                     }
                     argsIndex += 2;
                 }
@@ -105,13 +104,12 @@ public class WriteMeter {
                     try {
                         timeout = parseIntegerArg(args, argsLength, argsIndex);
                     } catch (NumberFormatException e) {
-                        error("Error, the <timeout> parameter is not an integer value.", true);
+                        error("Error: the <timeout> parameter is not an integer value.", true);
                     }
                     argsIndex += 2;
                 }
                 else {
-                    printUsage();
-                    System.exit(1);
+                    error("Error: unknown parameter.", true);
                 }
             }
         }
@@ -167,13 +165,13 @@ public class WriteMeter {
         byte[] ret = {};
 
         if (input.length() < 1) {
-            error("Error, minimal length of <" + inputName + "> is two hex signs.", true);
+            error("Error: minimal length of <" + inputName + "> is two hex signs.", true);
         }
         else {
             try {
                 ret = HexConverter.fromShortHexString(input);
             } catch (NumberFormatException e) {
-                error("Error, the <" + inputName + "> parameter contains non hexadecimal character.", true);
+                error("Error: the <" + inputName + "> parameter contains non hexadecimal character.", true);
             }
         }
         return ret;
@@ -182,13 +180,12 @@ public class WriteMeter {
     private static int parseIntegerArg(String[] args, int argsLength, int argsIndex) throws NumberFormatException {
         int ret = 0;
         if (argsLength < argsIndex + 2) {
-            printUsage();
-            System.exit(1);
+            error("Missing value.", true);
         }
         try {
             ret = Integer.parseInt(args[++argsIndex]);
         } catch (NumberFormatException e) {
-            error("Error, the <baud_rate> parameter is not an integer value.", false);
+            error("Error: the <baud_rate> parameter is not an integer value.", false);
         }
         return ret;
     }

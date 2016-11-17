@@ -22,6 +22,7 @@ package org.openmuc.jmbus.app;
 
 import java.io.IOException;
 import java.util.Date;
+import java.util.Locale;
 
 import org.openmuc.jmbus.DecodingException;
 import org.openmuc.jmbus.HexConverter;
@@ -61,13 +62,12 @@ public class WMBusReceiver implements WMBusListener {
 
     public static void main(String[] args) {
         if (args.length < 3) {
-            printUsage();
-            System.exit(1);
+            error("Error: too few arguments.", true);
         }
 
         String serialPortName = args[0];
 
-        String modeString = args[2].toUpperCase();
+        String modeString = args[2].toUpperCase(Locale.US);
         WMBusMode mode = null;
         if (modeString.equals("S")) {
             mode = WMBusMode.S;
@@ -76,8 +76,7 @@ public class WMBusReceiver implements WMBusListener {
             mode = WMBusMode.T;
         }
         else {
-            printUsage();
-            System.exit(1);
+            error("Error: unknown argument.", true);
         }
 
         String transceiverString = args[1].toLowerCase();
@@ -89,8 +88,7 @@ public class WMBusReceiver implements WMBusListener {
             tempMBusSap = new WMBusSapRadioCrafts(serialPortName, mode, new WMBusReceiver());
         }
         else {
-            printUsage();
-            System.exit(1);
+            error("Error: not supported transceiver.", true);
         }
 
         final WMBusSap wMBusSap = tempMBusSap;
@@ -104,8 +102,7 @@ public class WMBusReceiver implements WMBusListener {
         for (int i = startIndexOfKeys; i < args.length; i++) {
             int index = args[i].indexOf(':');
             if (index == -1) {
-                printUsage();
-                System.exit(1);
+                error("Error: wrong syntax for secondary address key pairs", true);
             }
             wMBusSap.setKey(
                     SecondaryAddress.getFromWMBusLinkLayerHeader(
@@ -116,8 +113,7 @@ public class WMBusReceiver implements WMBusListener {
         try {
             wMBusSap.open();
         } catch (IOException e2) {
-            System.err.println("Failed to open serial port: " + e2.getMessage());
-            System.exit(1);
+            error("Failed to open serial port: " + e2.getMessage(), false);
         }
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -158,6 +154,14 @@ public class WMBusReceiver implements WMBusListener {
     @Override
     public void stoppedListening(IOException e) {
         System.out.println("Stopped listening for new messages because: " + e.getMessage());
+    }
+
+    private static void error(String errMsg, boolean printUsage) {
+        System.err.println(errMsg + "\n");
+        if (printUsage) {
+            printUsage();
+        }
+        System.exit(1);
     }
 
 }

@@ -263,7 +263,7 @@ public class VariableDataStructure {
                     .append(numberOfEncryptedBlocks)
                     .append("}");
 
-            if (encryptedVariableDataResponse.length != 0) {
+            if (encryptedVariableDataResponse != null && encryptedVariableDataResponse.length != 0) {
                 builder.append("\nEncrypted variable data: " + HexConverter.toHexString(encryptedVariableDataResponse));
             }
             else {

@@ -58,6 +58,9 @@ class SerialTransceiver {
      *             if any kind of error occurs opening the serial port.
      */
     public void open() throws IOException {
+
+        System.setProperty("gnu.io.rxtx.SerialPorts", serialPortName);
+
         CommPortIdentifier.getPortIdentifiers();
         CommPortIdentifier portIdentifier;
         try {

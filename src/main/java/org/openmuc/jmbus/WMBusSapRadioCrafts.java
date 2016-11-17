@@ -79,7 +79,7 @@ public class WMBusSapRadioCrafts extends AbstractWMBusSap {
                                 }
                             }
 
-                            if ((readBytesTotal - messageStartIndex) >= (messageLength + messageStartIndex)) {
+                            if ((readBytesTotal - messageStartIndex) >= messageLength) {
 
                                 int rssi = inputBuffer[messageLength + messageStartIndex - 1] & 0xff;
                                 final Integer signalStrengthInDBm;
@@ -108,7 +108,7 @@ public class WMBusSapRadioCrafts extends AbstractWMBusSap {
                         }
                         if (messageStartIndex > 0) {
                             for (int i = messageStartIndex; i < readBytesTotal; i++) {
-                                inputBuffer[i] = inputBuffer[i - messageStartIndex];
+                                inputBuffer[i - messageStartIndex] = inputBuffer[i];
                             }
                         }
                         readBytesTotal -= messageStartIndex;
