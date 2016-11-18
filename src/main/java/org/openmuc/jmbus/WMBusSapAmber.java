@@ -39,7 +39,7 @@ public class WMBusSapAmber extends AbstractWMBusSap {
     private class MessageReceiver extends Thread {
 
         private final ExecutorService executor = Executors.newSingleThreadExecutor();
-        
+
         private int discardCount = 0;
 
         @Override
