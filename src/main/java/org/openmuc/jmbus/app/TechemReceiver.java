@@ -21,13 +21,11 @@
 package org.openmuc.jmbus.app;
 
 import java.io.IOException;
-import java.util.Date;
 
 import org.openmuc.jmbus.DecodingException;
 import org.openmuc.jmbus.HexConverter;
 import org.openmuc.jmbus.SecondaryAddress;
 import org.openmuc.jmbus.TechemHKVMessage;
-import org.openmuc.jmbus.WMBusListener;
 import org.openmuc.jmbus.WMBusMessage;
 import org.openmuc.jmbus.WMBusMode;
 import org.openmuc.jmbus.WMBusSap;
@@ -42,7 +40,7 @@ import org.openmuc.jmbus.WMBusSapRadioCrafts;
 public class TechemReceiver extends WMBusReceiver{
     private static boolean debugMode = false ;
     
-	int[] filterIDs = {92313948, 92363681, 92363684, 92363682, 92363688, 92363734};
+	int[] filterIDs = {}; // put IDs of devices you are interested in. If emtpy, no filtering takes place.
 
 	private static void printUsage() {
         System.out.println(
@@ -158,8 +156,11 @@ public class TechemReceiver extends WMBusReceiver{
         	if (messageBytes.length==51 && (messageBytes[10] & 0xff) ==  0xa0 && message.getSecondaryAddress().getManufacturerId().equals("TCH")	){
         		newMessage(new TechemHKVMessage(message));
         	} else {
-               System.out.println("Unable to fully decode received message: " + e.getMessage());
-               System.out.println(message.toString());
+                if (debugMode == true) {
+                    System.out.println("Unable to fully decode received message: " + e.getMessage());
+               	    System.out.println(message.toString());
+               		e.printStackTrace();
+                }
         	}
         }
     }
