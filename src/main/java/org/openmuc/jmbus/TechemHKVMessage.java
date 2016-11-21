@@ -84,7 +84,35 @@ public class TechemHKVMessage extends WMBusMessage{
         }   
     }
     
-    int parseBigEndianInt(int i){
+    public Calendar getLastDate() {
+		return lastDate;
+	}
+
+	public Calendar getCurDate() {
+		return curDate;
+	}
+
+	public int getLastVal() {
+		return lastVal;
+	}
+
+	public int getCurVal() {
+		return curVal;
+	}
+
+	public float getT1() {
+		return t1;
+	}
+
+	public float getT2() {
+		return t2;
+	}
+
+	public String getHistory() {
+		return history;
+	}
+
+	int parseBigEndianInt(int i){
     	return (hkvBuffer[i] & 0xFF)+((hkvBuffer[i+1] & 0xFF)<<8);
     }
     
