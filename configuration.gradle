@@ -82,8 +82,9 @@ apply plugin: 'signing'
 
 
 dependencies {
-  compile files('dependencies/rxtx/rxtxcomm_api-2.2pre2.jar')
+  //compile files('dependencies/rxtx/rxtxcomm_api-2.2pre2.jar')
   //compile files('dependencies/jrxtx/jrxtx-0.0.1-SNAPSHOT.jar')
+  	compile 'com.neuronrobotics:nrjavaserial:3.13.0'
 }
 
 jar {
