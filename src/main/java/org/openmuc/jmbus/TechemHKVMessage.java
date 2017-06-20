@@ -66,7 +66,7 @@ public class TechemHKVMessage extends WMBusMessage{
         	
     		ciField=hkvBuffer[offset+0]  & 0xff;
     		
-        	if (ciField ==  0xa0 && getSecondaryAddress().getManufacturerId().equals("TCH")	){
+        	if ((ciField ==  0xa0 ||  ciField ==  0xa2) && getSecondaryAddress().getManufacturerId().equals("TCH")	){
         		status=HexConverter.toShortHexString(hkvBuffer[offset+1]);
         		lastDate=parseLastDate(offset+2);
         		curDate=parseCurrentDate(offset+6);
@@ -75,7 +75,7 @@ public class TechemHKVMessage extends WMBusMessage{
         		t1=parseTemp(offset+10);
         		t2=parseTemp(offset+12);
         		
-        		System.arraycopy(hkvBuffer, 24, historyBytes, 0, 27);
+        		System.arraycopy(hkvBuffer, 24, historyBytes, 0, hkvBuffer.length-24);
         		history=HexConverter.toShortHexString(historyBytes);
         		
         	} else {
@@ -191,7 +191,8 @@ public class TechemHKVMessage extends WMBusMessage{
 		            .append(";").append(curVal)
 		            .append(";").append(t1)
 		            .append(";").append(t2)
-		            .append(";").append(history);
+		            .append(";").append(history)
+            		.append(";").append(HexConverter.toShortHexString(hkvBuffer));
             return builder.toString();
         }
     }

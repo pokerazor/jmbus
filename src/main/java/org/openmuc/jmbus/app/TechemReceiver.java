@@ -115,6 +115,7 @@ public class TechemReceiver extends WMBusReceiver{
 
         try {
             wMBusSap.open();
+            System.out.println("Techem Listening started with device="+serialPortName+", Mode="+modeString+", transceiverType="+transceiverString);
         } catch (IOException e2) {
             System.err.println("Failed to open serial port: " + e2.getMessage());
             System.exit(1);
@@ -153,11 +154,16 @@ public class TechemReceiver extends WMBusReceiver{
             }
         } catch (DecodingException e) {
         	byte[] messageBytes=message.asBytes();
-        	if (messageBytes.length==51 && (messageBytes[10] & 0xff) ==  0xa0 && message.getSecondaryAddress().getManufacturerId().equals("TCH")	){
-        		newMessage(new TechemHKVMessage(message));
+        	if ((messageBytes.length==51 || messageBytes.length==47) && (messageBytes[10] & 0xff) ==  0xa0 && message.getSecondaryAddress().getManufacturerId().equals("TCH")	){
+        		newMessage(new TechemHKVMessage(message)); //standard a0
+        	} else if ((messageBytes[10] & 0xff) ==  0xa2 && message.getSecondaryAddress().getManufacturerId().equals("TCH")){
+        		newMessage(new TechemHKVMessage(message)); // at Karls'
+        	} else if ((messageBytes[10] & 0xff) ==  0x80 && message.getSecondaryAddress().getManufacturerId().equals("TCH")){
+        		newMessage(new TechemHKVMessage(message)); // at Karls' - warmwater?
         	} else {
                 if (debugMode == true) {
                     System.out.println("Unable to fully decode received message: " + e.getMessage());
+                    System.out.println("messageBytes.length="+messageBytes.length+" (messageBytes[10] & 0xff)="+(messageBytes[10] & 0xff)+" message.getSecondaryAddress().getManufacturerId()="+message.getSecondaryAddress().getManufacturerId());
                	    System.out.println(message.toString());
                		e.printStackTrace();
                 }
