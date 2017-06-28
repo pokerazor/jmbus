@@ -162,7 +162,7 @@ public class TechemReceiver extends WMBusReceiver{
         		newMessage(new TechemHKVMessage(message)); // at Karls' - warmwater?
         	} else {
                 if (debugMode == true) {
-                    System.out.println("Unable to fully decode received message: " + e.getMessage());
+                    System.out.println("TechemReceiver: Unable to fully decode received message: " + e.getMessage());
                     System.out.println("messageBytes.length="+messageBytes.length+" (messageBytes[10] & 0xff)="+(messageBytes[10] & 0xff)+" message.getSecondaryAddress().getManufacturerId()="+message.getSecondaryAddress().getManufacturerId());
                	    System.out.println(message.toString());
                		e.printStackTrace();
