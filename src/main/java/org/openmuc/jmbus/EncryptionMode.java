@@ -1,23 +1,6 @@
-/*
- * Copyright 2010-16 Fraunhofer ISE
- *
- * This file is part of jMBus.
- * For more information visit http://www.openmuc.org
- *
- * jMBus is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * jMBus is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with jMBus.  If not, see <http://www.gnu.org/licenses/>.
- *
- */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 package org.openmuc.jmbus;
 
 import java.util.HashMap;
@@ -29,6 +12,9 @@ public enum EncryptionMode {
     DES_CBC(2),
     DES_CBC_IV(3),
     RESERVED_04(4),
+    /**
+     * AES with Cipher Block Chaining Mode (CBC) and Initial Vector.
+     */
     AES_CBC_IV(5),
     RESERVED_06(6),
     RESERVED_07(7),
@@ -43,7 +29,7 @@ public enum EncryptionMode {
 
     private final int id;
 
-    private static final Map<Integer, EncryptionMode> idMap = new HashMap<Integer, EncryptionMode>();
+    private static final Map<Integer, EncryptionMode> idMap = new HashMap<>();
 
     static {
         for (EncryptionMode enumInstance : EncryptionMode.values()) {

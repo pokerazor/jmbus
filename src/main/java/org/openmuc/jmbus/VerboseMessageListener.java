@@ -3,7 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 package org.openmuc.jmbus;
 
-public enum WMBusMode {
-    T,
-    S
+import java.util.EventListener;
+
+public interface VerboseMessageListener extends EventListener {
+
+    void newVerboseMessage(VerboseMessage debugMessage);
+
+    void newVerboseMessage(String debugMessage);
 }

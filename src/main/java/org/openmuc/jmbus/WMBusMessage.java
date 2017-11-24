@@ -1,26 +1,10 @@
-/*
- * Copyright 2010-16 Fraunhofer ISE
- *
- * This file is part of jMBus.
- * For more information visit http://www.openmuc.org
- *
- * jMBus is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * jMBus is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with jMBus.  If not, see <http://www.gnu.org/licenses/>.
- *
- */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 package org.openmuc.jmbus;
 
-import java.util.HashMap;
+import java.text.MessageFormat;
+import java.util.Map;
 
 /**
  * 
@@ -53,7 +37,7 @@ public class WMBusMessage {
 
     private final byte[] buffer;
     private final Integer signalStrengthInDBm;
-    HashMap<String, byte[]> keyMap;
+    protected Map<SecondaryAddress, byte[]> keyMap;
 
     private int length;
     private int controlField;
@@ -62,7 +46,7 @@ public class WMBusMessage {
 
     private boolean decoded = false;
 
-    WMBusMessage(byte[] buffer, Integer signalStrengthInDBm, HashMap<String, byte[]> keyMap) {
+    WMBusMessage(byte[] buffer, Integer signalStrengthInDBm, Map<SecondaryAddress, byte[]> keyMap) {
         this.buffer = buffer;
         this.signalStrengthInDBm = signalStrengthInDBm;
         this.keyMap = keyMap;
@@ -71,8 +55,10 @@ public class WMBusMessage {
     public void decode() throws DecodingException {
         length = buffer[0] & 0xff;
         if (length > (buffer.length - 1)) {
-            throw new DecodingException("byte buffer has only a length of " + buffer.length
-                    + " while the specified length field is " + length);
+            String msg = MessageFormat.format(
+                    "Byte buffer has only a length of {0} while the specified length field is {1}.", buffer.length,
+                    length);
+            throw new DecodingException(msg);
         }
         controlField = buffer[1] & 0xff;
         secondaryAddress = SecondaryAddress.getFromWMBusLinkLayerHeader(buffer, 2);
@@ -118,9 +104,11 @@ public class WMBusMessage {
     @Override
     public String toString() {
         StringBuilder builder = new StringBuilder();
+
         if (signalStrengthInDBm != null) {
             builder.append("Message was received with signal strength: ").append(signalStrengthInDBm).append("dBm\n");
         }
+
         if (!decoded) {
             builder.append("Message has not been decoded. Bytes of this message:\n");
             HexConverter.appendHexString(builder, buffer, 0, buffer.length);
@@ -129,11 +117,11 @@ public class WMBusMessage {
         else {
             builder.append("control field: ");
             HexConverter.appendHexString(controlField, builder);
-            builder.append("\nSecondary Address -> ")
+            return builder.append("\nSecondary Address -> ")
                     .append(secondaryAddress)
                     .append("\nVariable Data Response:\n")
-                    .append(vdr);
-            return builder.toString();
+                    .append(vdr)
+                    .toString();
         }
     }
 

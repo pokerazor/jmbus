@@ -1,23 +1,6 @@
-/*
- * Copyright 2010-16 Fraunhofer ISE
- *
- * This file is part of jMBus.
- * For more information visit http://www.openmuc.org
- *
- * jMBus is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * jMBus is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with jMBus.  If not, see <http://www.gnu.org/licenses/>.
- *
- */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 package org.openmuc.jmbus;
 
 import java.util.ArrayList;
@@ -280,8 +263,9 @@ public class MessagesTest {
             (byte) 0x00, (byte) 0x01, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x0f,
             (byte) 0x9f, (byte) 0x16 };
 
-    final static ArrayList<byte[]> test_ABB_A41_messages = new ArrayList<byte[]>(Arrays.asList(test_ABB_A41_Msg1,
+    final static ArrayList<byte[]> test_ABB_A41_messages = new ArrayList<>(Arrays.asList(test_ABB_A41_Msg1,
             test_ABB_A41_Msg2, test_ABB_A41_Msg3, test_ABB_A41_Msg4, test_ABB_A41_Msg5));
+    final static int[] test_ABB_A41_DataRecodSizes = { 23, 24, 16, 17, 17 };
 
     public static void main(String[] args) {
 

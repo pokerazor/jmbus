@@ -1,23 +1,6 @@
-/*
- * Copyright 2010-16 Fraunhofer ISE
- *
- * This file is part of jMBus.
- * For more information visit http://www.openmuc.org
- *
- * jMBus is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * jMBus is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with jMBus.  If not, see <http://www.gnu.org/licenses/>.
- *
- */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 package org.openmuc.jmbus;
 
 import java.util.HashMap;
@@ -40,12 +23,12 @@ public class WMbusDemoMessageTest {
         byte[] testMessage2 = new byte[] {};
         byte[] key = new byte[] {};
 
-        HashMap<String, byte[]> keyMap = new HashMap<String, byte[]>();
+        HashMap<SecondaryAddress, byte[]> keyMap = new HashMap<>();
         WMBusMessage message2 = null;
 
         if (testMessage2.length > 0) {
             SecondaryAddress secondaryAddress2 = SecondaryAddress.getFromWMBusLinkLayerHeader(testMessage2, 2);
-            keyMap.put(HexConverter.toShortHexString(secondaryAddress2.asByteArray()), key);
+            keyMap.put(secondaryAddress2, key);
             message2 = new WMBusMessage(testMessage2, 100, keyMap);
             message2.decodeDeep();
         }
@@ -53,14 +36,6 @@ public class WMbusDemoMessageTest {
         WMBusMessage message1 = new WMBusMessage(testMessage1, 100, keyMap);
 
         message1.decodeDeep();
-
-        System.out.println();
-        System.out.println(message1.toString());
-
-        if (testMessage2.length > 0) {
-            System.out.println();
-            System.out.println(message2.toString());
-        }
     }
 
 }

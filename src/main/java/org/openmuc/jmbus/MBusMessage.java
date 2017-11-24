@@ -1,24 +1,9 @@
-/*
- * Copyright 2010-16 Fraunhofer ISE
- *
- * This file is part of jMBus.
- * For more information visit http://www.openmuc.org
- *
- * jMBus is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * jMBus is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with jMBus.  If not, see <http://www.gnu.org/licenses/>.
- *
- */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 package org.openmuc.jmbus;
+
+import java.io.IOException;
 
 /**
  * 
@@ -37,58 +22,92 @@ package org.openmuc.jmbus;
  */
 class MBusMessage {
 
+    private static final int RSP_UD_HEADER_LENGTH = 6;
+
     enum MessageType {
         // the other message types (e.g. SND_NKE, REQ_UD2) cannot be sent from slave to master and are therefore
         // omitted.
-        SINGLE_CHARACTER,
-        RSP_UD;
-    };
+        SINGLE_CHARACTER(0xE5),
+        RSP_UD(0x68);
+
+        private static final MessageType[] VALUES = values();
+        private final int value;
+
+        private MessageType(int value) {
+            this.value = value;
+        }
+
+        private static MessageType messageTypeFor(byte value) throws IOException {
+            int vAsint = value & 0xff;
+            for (MessageType messageType : VALUES) {
+                if (vAsint == messageType.value) {
+                    return messageType;
+                }
+            }
+            throw new IOException("Unexpected first frame byte: " + HexConverter.toHexString(value));
+        }
+    }
 
     private final MessageType messageType;
     private final int addressField;
     private final VariableDataStructure variableDataStructure;
 
-    MBusMessage(byte[] buffer, int length) throws DecodingException {
+    private MBusMessage(MessageType messageType, int addressField, VariableDataStructure variableDataStructure) {
+        this.messageType = messageType;
+        this.addressField = addressField;
+        this.variableDataStructure = variableDataStructure;
+    }
 
-        switch (buffer[0] & 0xff) {
-        case 0xe5:
-            messageType = MessageType.SINGLE_CHARACTER;
+    static MBusMessage decode(byte[] buffer, int length) throws IOException {
+        MessageType messageType = MessageType.messageTypeFor(buffer[0]);
+        int addressField;
+        VariableDataStructure variableDataStructure;
+
+        switch (messageType) {
+        case SINGLE_CHARACTER:
             addressField = 0;
             variableDataStructure = null;
             break;
-        case 0x68:
-            int lengthField = buffer[1] & 0xff;
+        case RSP_UD:
+            int messageLength = buffer[1] & 0xff;
 
-            if (lengthField != length - 6) {
-                throw new DecodingException(
+            if (messageLength != length - RSP_UD_HEADER_LENGTH) {
+                throw new IOException(
                         "Wrong length field in frame header does not match the buffer length. Length field: "
-                                + lengthField + ", buffer length: " + length + " !");
+                                + messageLength + ", buffer length: " + length + " !");
             }
 
             if (buffer[1] != buffer[2]) {
-                throw new DecodingException("Length fields are not identical in long frame!");
+                throw new IOException("Length fields are not identical in long frame!");
             }
 
-            if (buffer[3] != 0x68) {
-                throw new DecodingException("Fourth byte of long frame was not 0x68.");
+            if (buffer[3] != MessageType.RSP_UD.value) {
+                throw new IOException("Fourth byte of long frame was not 0x68.");
             }
 
             int controlField = buffer[4] & 0xff;
 
             if ((controlField & 0xcf) != 0x08) {
-                throw new DecodingException(
-                        "Unexptected control field value: " + HexConverter.toHexString((byte) controlField));
+                throw new IOException(
+                        "Unexpected control field value: " + HexConverter.toHexString((byte) controlField));
             }
-
-            messageType = MessageType.RSP_UD;
 
             addressField = buffer[5] & 0xff;
 
-            variableDataStructure = new VariableDataStructure(buffer, 6, length - 6, null, null);
+            try {
+                variableDataStructure = new VariableDataStructure(buffer, RSP_UD_HEADER_LENGTH, messageLength, null,
+                        null);
+            } catch (DecodingException e) {
+                throw new IOException("Failed to decode variable data structure.");
+            }
             break;
+
         default:
-            throw new DecodingException("Unexpected first frame byte: " + HexConverter.toHexString(buffer[0]));
+            // should not occur.
+            throw new RuntimeException("Case not supported " + messageType);
         }
+
+        return new MBusMessage(messageType, addressField, variableDataStructure);
     }
 
     public int getAddressField() {
@@ -105,13 +124,13 @@ class MBusMessage {
 
     @Override
     public String toString() {
-        StringBuilder builder = new StringBuilder();
-        builder.append("message type: ");
-        builder.append(messageType);
-        builder.append("\naddress field: ");
-        builder.append(addressField & 0xff);
-        builder.append("\nVariable Data Structure:\n").append(variableDataStructure);
-        return builder.toString();
+        return new StringBuilder().append("message type: ")
+                .append(messageType)
+                .append("\naddress field: ")
+                .append(addressField & 0xff)
+                .append("\nVariable Data Structure:\n")
+                .append(variableDataStructure)
+                .toString();
     }
 
 }

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 JARS_LOCATION="../build/libs-all"
-MAIN_CLASS="org.openmuc.jmbus.app.WriteMeter"
+MAIN_CLASS="org.openmuc.jmbus.app.JmbusApp"
 SYSPROPS=""
 PARAMS=""
 

@@ -1,9 +1,12 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 package org.openmuc.jmbus;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.io.InterruptedIOException;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.TimeoutException;
 
 public class ScanSecondaryAddress {
 
@@ -11,21 +14,25 @@ public class ScanSecondaryAddress {
     private static int pos = 0;
     private static byte[] value = new byte[MAX_LENGTH];
 
-    private static List<SecondaryAddress> secondaryAddresses = new ArrayList<SecondaryAddress>();
-
-    private ScanSecondaryAddress() {
-    }
-
     /**
-     * * Scans for secondary addresses.
+     * Scans for secondary addresses and returns all detected devices in a list and if SecondaryAddressListener not null
+     * to the listen listener.
      * 
      * @param mBusSap
      *            the opened mBusSap
      * @param wildcardMask
      *            a wildcard mask for masking
+     * @param secondaryAddressListener
+     *            listener to get scan messages and scanned secondary address just at time.<br>
+     *            If null, all detected address will only returned if finished.
+     * 
      * @return a list of secondary addresses of all detected devices
      */
-    public static List<SecondaryAddress> scan(MBusSap mBusSap, String wildcardMask) {
+    public static List<SecondaryAddress> scan(MBusSap mBusSap, String wildcardMask,
+            SecondaryAddressListener secondaryAddressListener) {
+
+        boolean isListenerNull = secondaryAddressListener == null;
+        List<SecondaryAddress> secondaryAddresses = new LinkedList<>();
 
         boolean stop = false;
         boolean collision = false;
@@ -44,23 +51,25 @@ public class ScanSecondaryAddress {
         value[pos] = 0;
 
         while (!stop) {
-
-            System.out.println("scan with wildcard: " + toString(toSendByteArray(value)));
+            if (!isListenerNull && secondaryAddressListener.isScanMessageActive()) {
+                sendMessageToListener(secondaryAddressListener,
+                        "scan with wildcard: " + HexConverter.toShortHexString(toSendByteArray(value)));
+            }
             SecondaryAddress secondaryAddessesWildCard = SecondaryAddress.getFromLongHeader(toSendByteArray(value), 0);
-            SecondaryAddress readedSecondaryAddress = null;
+            SecondaryAddress readSecondaryAddress = null;
 
             if (mBusSap.scanSelection(secondaryAddessesWildCard)) {
 
                 try {
-                    readedSecondaryAddress = mBusSap.read(0xfd).getSecondaryAddress();
+                    readSecondaryAddress = mBusSap.read(0xfd).getSecondaryAddress();
 
+                } catch (InterruptedIOException e) {
+                    sendMessageToListener(secondaryAddressListener, "Read (REQ_UD2) TimeoutException");
+                    collision = false;
                 } catch (IOException e) {
-                    System.out.println("Read (REQ_UD2) IOException / Collision");
+                    sendMessageToListener(secondaryAddressListener, "Read (REQ_UD2) IOException / Collision");
                     collision = true;
 
-                } catch (TimeoutException e) {
-                    System.out.println("Read (REQ_UD2) TimeoutException");
-                    collision = false;
                 }
                 if (collision) {
                     if (pos < 7) {
@@ -73,13 +82,20 @@ public class ScanSecondaryAddress {
                     collision = false;
                 }
                 else {
-                    if (readedSecondaryAddress != null) {
-                        System.out.println("Detected Device:\n" + readedSecondaryAddress.toString());
-                        secondaryAddresses.add(readedSecondaryAddress);
+                    if (readSecondaryAddress != null) {
+                        if (!isListenerNull && secondaryAddressListener.isScanMessageActive()) {
+                            sendMessageToListener(secondaryAddressListener,
+                                    "Detected Device:\n" + readSecondaryAddress.toString());
+                        }
+                        secondaryAddresses.add(readSecondaryAddress);
+                        if (!isListenerNull) {
+                            secondaryAddressListener.newDeviceFound(readSecondaryAddress);
+                        }
                         stop = handler();
                     }
                     else {
-                        System.out.println("Problem to decode secondary address. Perhaps a collision.");
+                        sendMessageToListener(secondaryAddressListener,
+                                "Problem to decode secondary address. Perhaps a collision.");
                         if (pos < 7) {
                             ++pos;
                             value[pos] = 0;
@@ -102,7 +118,6 @@ public class ScanSecondaryAddress {
     }
 
     private static boolean handler() {
-
         boolean stop;
 
         ++value[pos];
@@ -132,14 +147,12 @@ public class ScanSecondaryAddress {
     }
 
     private static void setFValue() {
-
         for (int i = pos + 1; i < 8; ++i) {
-            value[i] = 15; // f
+            value[i] = 0xf;
         }
     }
 
     private static byte[] toSendByteArray(byte[] value) {
-
         byte[] sendByteArray = new byte[8];
 
         for (int i = 0; i < MAX_LENGTH; ++i) {
@@ -163,7 +176,6 @@ public class ScanSecondaryAddress {
      * @return a fliped string value.
      */
     private static String flipString(String value) {
-
         StringBuilder flipped = new StringBuilder();
 
         for (int i = 0; i < value.length(); i += 2) {
@@ -173,8 +185,16 @@ public class ScanSecondaryAddress {
         return flipped.toString();
     }
 
-    private static String toString(byte[] value) {
-
-        return HexConverter.toShortHexString(value);
+    private static void sendMessageToListener(SecondaryAddressListener secondaryAddressListener, String message) {
+        if (secondaryAddressListener != null && secondaryAddressListener.isScanMessageActive()) {
+            secondaryAddressListener.newScanMessage(message);
+        }
     }
+
+    /**
+     * Don't let anyone instantiate this class.
+     */
+    private ScanSecondaryAddress() {
+    }
+
 }

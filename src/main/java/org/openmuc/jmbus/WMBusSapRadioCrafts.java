@@ -1,30 +1,20 @@
-/*
- * Copyright 2010-16 Fraunhofer ISE
- *
- * This file is part of jMBus.
- * For more information visit http://www.openmuc.org
- *
- * jMBus is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * jMBus is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with jMBus.  If not, see <http://www.gnu.org/licenses/>.
- *
- */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 package org.openmuc.jmbus;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import gnu.io.SerialPort;
+import org.openmuc.jrxtx.DataBits;
+import org.openmuc.jrxtx.Parity;
+import org.openmuc.jrxtx.SerialPortBuilder;
+import org.openmuc.jrxtx.StopBits;
 
 /**
  * 
@@ -33,117 +23,122 @@ import gnu.io.SerialPort;
  */
 public class WMBusSapRadioCrafts extends AbstractWMBusSap {
 
-    private MessageReceiver receiver;
+    /**
+     * Radio Craft W-MBUS frame:
+     * @formatter:off
+     * +---+----+-----------+
+     * | L | CI | APPL_DATA |
+     * +---+----+-----------+
+     *  ~ L is the length (not including the length byte itself)
+     *  ~ CI is the Control Information byte
+     * @formatter:on
+     */
 
-    private class MessageReceiver extends Thread {
+    private static final int ACK = 0x3E;
+    private final String serialPortName;
+    private final ExecutorService receiverService;
 
+    private static final int FRAGMENT_TIMEOUT = 500;
+
+    private class MessageReceiver implements Runnable {
+
+        /**
+         * Indicates message from primary station, function send/no reply (SND -N
+         */
+        private static final byte CONTROL_BYTE = 0x44;
         private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
         @Override
         public void run() {
-
-            int timeElapsed = 0;
-            int readBytesTotal = 0;
-            int messageLength = -1;
-
             try {
+
+                byte[] discardBuffer = new byte[BUFFER_LENGTH];
+                int bufferPointer = 0;
                 while (!closed) {
 
+                    byte b0, b1;
+                    while (true) {
+                        serialPort.setSerialPortTimeout(0);
+                        b0 = is.readByte();
+                        serialPort.setSerialPortTimeout(FRAGMENT_TIMEOUT);
+
+                        try {
+                            // this may time out.
+                            b1 = is.readByte();
+                        } catch (InterruptedIOException e) {
+                            continue;
+                        }
+
+                        if (b1 == CONTROL_BYTE) {
+                            break;
+                        }
+
+                        discardBuffer[bufferPointer++] = b0;
+                        discardBuffer[bufferPointer++] = b1;
+
+                        if (bufferPointer - 2 >= discardBuffer.length) {
+                            discard(discardBuffer, 0, bufferPointer);
+                            bufferPointer = 0;
+                        }
+
+                    }
+
+                    int messageLength = b0 & 0xff;
+
+                    final byte[] messageData = new byte[messageLength + 1];
+
+                    messageData[0] = b0;
+                    messageData[1] = b1;
+
+                    int len = messageData.length - 2;
                     try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                    }
+                        int numReadBytes = is.read(messageData, 2, len);
 
-                    if (is.available() > 0) {
-
-                        int messageStartIndex = 0;
-                        timeElapsed = 0;
-
-                        readBytesTotal += is.read(inputBuffer, readBytesTotal, BUFFER_LENGTH - readBytesTotal);
-
-                        while ((readBytesTotal - messageStartIndex) > 10) {
-
-                            // no beginning of message has been found
-                            if (messageLength == -1) {
-                                for (int i = (messageStartIndex + 1); i < readBytesTotal; i++) {
-                                    if (inputBuffer[i] == 0x44) {
-                                        messageStartIndex = i - 1;
-                                        messageLength = (inputBuffer[messageStartIndex] & 0xff) + 1;
-                                        break;
-                                    }
-                                }
-                                if (messageLength == -1) {
-                                    discard(messageStartIndex, (readBytesTotal - messageStartIndex));
-                                    messageStartIndex = readBytesTotal;
-                                    break;
-                                }
-                            }
-
-                            if ((readBytesTotal - messageStartIndex) >= messageLength) {
-
-                                int rssi = inputBuffer[messageLength + messageStartIndex - 1] & 0xff;
-                                final Integer signalStrengthInDBm;
-
-                                signalStrengthInDBm = (rssi * -1) / 2;
-
-                                final byte[] messageBytes = new byte[messageLength - 1];
-                                System.arraycopy(inputBuffer, messageStartIndex, messageBytes, 0, messageLength - 1);
-                                messageBytes[0] = (byte) (messageBytes[0] - 1);
-
-                                executor.execute(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        listener.newMessage(
-                                                new WMBusMessage(messageBytes, signalStrengthInDBm, keyMap));
-                                    }
-                                });
-
-                                messageStartIndex += messageLength;
-                                messageLength = -1;
-
-                            }
-                            else {
-                                break;
-                            }
+                        if (len == numReadBytes) {
+                            notifyListener(messageData);
                         }
-                        if (messageStartIndex > 0) {
-                            for (int i = messageStartIndex; i < readBytesTotal; i++) {
-                                inputBuffer[i - messageStartIndex] = inputBuffer[i];
-                            }
+                        else {
+                            discard(messageData, 0, numReadBytes + 2);
                         }
-                        readBytesTotal -= messageStartIndex;
-
-                    }
-                    else if (readBytesTotal > 0) {
-                        timeElapsed += 100;
-                        if (timeElapsed > 500) {
-                            discard(0, readBytesTotal);
-                            timeElapsed = 0;
-                            readBytesTotal = 0;
-                            messageLength = -1;
-                        }
+                    } catch (InterruptedIOException e) {
+                        discard(messageData, 0, 2);
                     }
 
                 }
+            } catch (final IOException e) {
+                if (!closed) {
+                    executor.execute(new Runnable() {
 
-            } catch (final Exception e) {
-                close();
-                executor.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        listener.stoppedListening(new IOException(e));
-                    }
-                });
+                        @Override
+                        public void run() {
+                            Thread.currentThread().setName("Notify stopped listening thread.");
+                            listener.stoppedListening(new IOException(e));
+                        }
+                    });
+                }
 
             } finally {
+                close();
                 executor.shutdown();
             }
 
         }
 
-        private void discard(int offset, int length) {
-            final byte[] discardedBytes = new byte[length];
-            System.arraycopy(inputBuffer, offset, discardedBytes, 0, length);
+        private void notifyListener(final byte[] messageBytes) {
+            messageBytes[0] = (byte) (messageBytes[0] - 1);
+            int rssi = messageBytes[messageBytes.length - 1] & 0xff;
+
+            final int signalStrengthInDBm = (rssi * -1) / 2;
+            executor.execute(new Runnable() {
+                @Override
+                public void run() {
+                    listener.newMessage(new WMBusMessage(messageBytes, signalStrengthInDBm, keyMap));
+                }
+            });
+        }
+
+        private void discard(byte[] buffer, int offset, int length) {
+            final byte[] discardedBytes = Arrays.copyOfRange(buffer, offset, offset + length);
 
             executor.execute(new Runnable() {
                 @Override
@@ -152,12 +147,13 @@ public class WMBusSapRadioCrafts extends AbstractWMBusSap {
                 }
             });
         }
+
     }
 
     public WMBusSapRadioCrafts(String serialPortName, WMBusMode mode, WMBusListener listener) {
         super(mode, listener);
-        this.serialTransceiver = new SerialTransceiver(serialPortName, 19200, SerialPort.DATABITS_8,
-                SerialPort.STOPBITS_1, SerialPort.PARITY_NONE);
+        this.serialPortName = serialPortName;
+        this.receiverService = Executors.newSingleThreadExecutor();
     }
 
     @Override
@@ -165,14 +161,26 @@ public class WMBusSapRadioCrafts extends AbstractWMBusSap {
         if (!closed) {
             return;
         }
-        serialTransceiver.open();
-        os = serialTransceiver.getOutputStream();
-        is = serialTransceiver.getInputStream();
-        initializeWirelessTransceiver(mode);
-        receiver = new MessageReceiver();
-        closed = false;
-        receiver.start();
+        this.serialPort = SerialPortBuilder.newBuilder(this.serialPortName)
+                .setBaudRate(19200)
+                .setDataBits(DataBits.DATABITS_8)
+                .setStopBits(StopBits.STOPBITS_1)
+                .setParity(Parity.NONE)
+                .build();
 
+        this.os = new DataOutputStream(serialPort.getOutputStream());
+        this.is = new DataInputStream(serialPort.getInputStream());
+
+        initializeWirelessTransceiver(mode);
+        this.closed = false;
+
+        this.receiverService.execute(new MessageReceiver());
+    }
+
+    @Override
+    public void close() {
+        super.close();
+        receiverService.shutdown();
     }
 
     /**
@@ -181,7 +189,8 @@ public class WMBusSapRadioCrafts extends AbstractWMBusSap {
      * @throws IOException
      */
     private void initializeWirelessTransceiver(WMBusMode mode) throws IOException {
-        enterConfigMode();
+        // enter config mode
+        sendByteInConfigMode(0x00);
 
         switch (mode) {
         case S:
@@ -207,7 +216,6 @@ public class WMBusSapRadioCrafts extends AbstractWMBusSap {
             // /* Set Auto Answer Register */
             // sendByteInConfigMode(0x41);
             // sendByteInConfigMode(0xff);
-
             break;
         case T:
             /* Set T2 mode */
@@ -236,45 +244,30 @@ public class WMBusSapRadioCrafts extends AbstractWMBusSap {
             throw new IOException("wMBUS Mode '" + mode.toString() + "' is not supported");
         }
 
-        leaveConfigMode();
-
-    }
-
-    private void leaveConfigMode() throws IOException {
+        // leave config mode
         os.write(0x58);
-    }
 
-    private void enterConfigMode() throws IOException {
-        sendByteInConfigMode(0x00);
     }
 
     private void sendByteInConfigMode(int b) throws IOException {
-        int timeval = 0;
-        int timeout = 500;
-        int read;
 
-        if (is.available() > 0) {
-            read = is.read(inputBuffer);
-        }
+        discardNoise();
 
         os.write(b);
+        os.flush();
 
-        while (timeval < timeout) {
-            if (is.available() > 0) {
-                read = is.read();
-                if (read != 0x3e) {
-                    throw new IOException("sendByteInConfigMode failed");
-                }
-            }
+        serialPort.setSerialPortTimeout(FRAGMENT_TIMEOUT);
 
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-            }
-
-            timeval += 100;
+        if (is.read() != ACK) {
+            throw new IOException("sendByteInConfigMode failed");
         }
 
+    }
+
+    private void discardNoise() throws IOException {
+        if (is.available() > 0) {
+            is.read(inputBuffer);
+        }
     }
 
 }

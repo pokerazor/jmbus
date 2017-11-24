@@ -1,23 +1,6 @@
-/*
- * Copyright 2010-16 Fraunhofer ISE
- *
- * This file is part of jMBus.
- * For more information visit http://www.openmuc.org
- *
- * jMBus is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * jMBus is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with jMBus.  If not, see <http://www.gnu.org/licenses/>.
- *
- */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 package org.openmuc.jmbus;
 
 import org.junit.Assert;
@@ -27,50 +10,45 @@ import org.openmuc.jmbus.DataRecord.Description;
 public class DataRecordParserTest {
 
     @Test
-    public void testINT64() {
+    public void testINT64() throws Exception {
 
+        decode1();
+
+        decode2();
+
+    }
+
+    private void decode2() throws DecodingException {
+        DataRecord dataRecord = new DataRecord();
+        byte[] bytes = new byte[] { (byte) 0x07, (byte) 0x04, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF,
+                (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF };
+
+        dataRecord.decode(bytes, 0, bytes.length);
+
+        Object obj = dataRecord.getDataValue();
+
+        Assert.assertEquals(obj instanceof Long, true);
+
+        Long val = (Long) obj;
+
+        Assert.assertEquals(Long.valueOf(-1l), val);
+    }
+
+    private void decode1() throws DecodingException {
         DataRecord dataRecord = new DataRecord();
 
         byte[] bytes = new byte[] { (byte) 0x07, (byte) 0x04, (byte) 0x12, (byte) 0x23, (byte) 0x34, (byte) 0x45,
                 (byte) 0x56, (byte) 0x67, (byte) 0x78, (byte) 0x12 };
 
-        try {
+        dataRecord.decode(bytes, 0, bytes.length);
 
-            dataRecord.decode(bytes, 0, bytes.length);
+        Object obj = dataRecord.getDataValue();
 
-            Object obj = dataRecord.getDataValue();
+        Assert.assertEquals(obj instanceof Long, true);
 
-            Assert.assertEquals(obj instanceof Long, true);
+        Long val = (Long) obj;
 
-            Long val = (Long) obj;
-
-            System.out.println(val);
-
-            Assert.assertEquals(Long.valueOf(1330927310113874706l), val);
-
-        } catch (DecodingException e) {
-            Assert.fail("Unexpected exception");
-        }
-
-        dataRecord = new DataRecord();
-        bytes = new byte[] { (byte) 0x07, (byte) 0x04, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF,
-                (byte) 0xFF, (byte) 0xFF, (byte) 0xFF };
-
-        try {
-            dataRecord.decode(bytes, 0, bytes.length);
-
-            Object obj = dataRecord.getDataValue();
-
-            Assert.assertEquals(obj instanceof Long, true);
-
-            Long val = (Long) obj;
-
-            Assert.assertEquals(Long.valueOf(-1l), val);
-
-        } catch (DecodingException e) {
-            Assert.fail("Unexpected exception");
-        }
-
+        Assert.assertEquals(Long.valueOf(1330927310113874706l), val);
     }
 
     @Test

@@ -1,28 +1,14 @@
-/*
- * Copyright 2010-16 Fraunhofer ISE
- *
- * This file is part of jMBus.
- * For more information visit http://www.openmuc.org
- *
- * jMBus is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * jMBus is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with jMBus.  If not, see <http://www.gnu.org/licenses/>.
- *
- */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 package org.openmuc.jmbus;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.HashMap;
+
+import org.openmuc.jrxtx.SerialPort;
 
 abstract class AbstractWMBusSap implements WMBusSap {
 
@@ -33,9 +19,9 @@ abstract class AbstractWMBusSap implements WMBusSap {
     final WMBusListener listener;
     final WMBusMode mode;
 
-    SerialTransceiver serialTransceiver;
+    SerialPort serialPort;
 
-    final HashMap<String, byte[]> keyMap = new HashMap<String, byte[]>();
+    final HashMap<SecondaryAddress, byte[]> keyMap = new HashMap<>();
     volatile boolean closed = true;
 
     DataOutputStream os;
@@ -48,21 +34,26 @@ abstract class AbstractWMBusSap implements WMBusSap {
 
     @Override
     public void close() {
-        if (closed) {
+        if (closed || serialPort == null) {
             return;
         }
-        closed = true;
-        serialTransceiver.close();
+
+        try {
+            serialPort.close();
+            closed = true;
+        } catch (IOException e) {
+            // ignore
+        }
     }
 
     @Override
     public void setKey(SecondaryAddress address, byte[] key) {
-        keyMap.put(HexConverter.toShortHexString(address.asByteArray()), key);
+        keyMap.put(address, key);
     }
 
     @Override
     public void removeKey(SecondaryAddress address) {
-        keyMap.remove(HexConverter.toShortHexString(address.asByteArray()));
+        keyMap.remove(address);
     }
 
 }

@@ -1,29 +1,14 @@
-/*
- * Copyright 2010-16 Fraunhofer ISE
- *
- * This file is part of jMBus.
- * For more information visit http://www.openmuc.org
- *
- * jMBus is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * jMBus is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with jMBus.  If not, see <http://www.gnu.org/licenses/>.
- *
- */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 package org.openmuc.jmbus;
+
+import static java.text.MessageFormat.format;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Representation of the data transmitted in RESP-UD (M-Bus) and SND-NR (wM-Bus) messages.
@@ -37,7 +22,7 @@ public class VariableDataStructure {
     private final int offset;
     private final int length;
     private final SecondaryAddress linkLayerSecondaryAddress;
-    HashMap<String, byte[]> keyMap;
+    private final Map<SecondaryAddress, byte[]> keyMap;
 
     private SecondaryAddress secondaryAddress;
     private int accessNumber;
@@ -53,7 +38,7 @@ public class VariableDataStructure {
     private List<DataRecord> dataRecords;
 
     public VariableDataStructure(byte[] buffer, int offset, int length, SecondaryAddress linkLayerSecondaryAddress,
-            HashMap<String, byte[]> keyMap) throws DecodingException {
+            Map<SecondaryAddress, byte[]> keyMap) throws DecodingException {
         this.buffer = buffer;
         this.offset = offset;
         this.length = length;
@@ -76,27 +61,16 @@ public class VariableDataStructure {
                 break;
             case 0x7a:
                 decodeShortHeader(buffer, offset + 1);
-                if (encryptionMode == EncryptionMode.AES_CBC_IV) {
-                    encryptedVariableDataResponse = new byte[length - 5];
-                    System.arraycopy(buffer, offset + 5, encryptedVariableDataResponse, 0, length - 5);
-
-                    byte[] key = keyMap.get(HexConverter.toShortHexString(linkLayerSecondaryAddress.asByteArray(), 0,
-                            linkLayerSecondaryAddress.asByteArray().length));
-                    if (key == null) {
-                        throw new DecodingException(
-                                "Unable to decode encrypted payload because no key for the following secondary address was registered: "
-                                        + linkLayerSecondaryAddress);
-                    }
-
-                    decodeDataRecords(decryptMessage(key), 0, length - 5);
-                    encryptedVariableDataResponse = null;
-                }
-                else if (encryptionMode == EncryptionMode.NONE) {
+                if (encryptionMode == EncryptionMode.NONE) {
                     decodeDataRecords(buffer, offset + 5, length - 5);
+                    break;
                 }
-                else {
+                else if (encryptionMode != EncryptionMode.AES_CBC_IV) {
                     throw new DecodingException("Unsupported encryption mode used: " + encryptionMode);
                 }
+
+                decryptAesCbcIv();
+
                 break;
             default:
                 if ((ciField >= 0xA0) && (ciField <= 0xB7)) {
@@ -106,11 +80,29 @@ public class VariableDataStructure {
                 throw new DecodingException(
                         "Unable to decode message with this CI Field: " + HexConverter.toHexString((byte) ciField));
             }
-        } catch (Exception e) {
+        } catch (DecodingException e) {
+            throw e;
+        } catch (RuntimeException e) {
             throw new DecodingException(e);
         }
 
         decoded = true;
+    }
+
+    private void decryptAesCbcIv() throws DecodingException {
+        encryptedVariableDataResponse = new byte[length - 5];
+        System.arraycopy(buffer, offset + 5, encryptedVariableDataResponse, 0, length - 5);
+
+        byte[] key = keyMap.get(linkLayerSecondaryAddress);
+
+        if (key == null) {
+            String msg = format("Unable to decode encrypted payload. \nSecondary address key was not registered: \n{0}",
+                    linkLayerSecondaryAddress);
+            throw new DecodingException(msg);
+        }
+
+        decodeDataRecords(decryptMessage(key), 0, length - 5);
+        encryptedVariableDataResponse = null;
     }
 
     public SecondaryAddress getSecondaryAddress() {
@@ -164,7 +156,7 @@ public class VariableDataStructure {
 
     private void decodeDataRecords(byte[] buffer, int offset, int length) throws DecodingException {
 
-        dataRecords = new ArrayList<DataRecord>();
+        dataRecords = new ArrayList<>();
 
         int i = offset;
 
@@ -206,7 +198,7 @@ public class VariableDataStructure {
         }
 
         if (key == null) {
-            throw new DecodingException("No AES Key found for Device Address!");
+            throw new DecodingException("AES key for give address not specified.");
         }
 
         AesCrypt tempcrypter = new AesCrypt(key, createInitializationVector(linkLayerSecondaryAddress));
@@ -233,8 +225,8 @@ public class VariableDataStructure {
 
         System.arraycopy(linkLayerSecondaryAddress.asByteArray(), 0, initializationVector, 0, 8);
 
-        for (int i = 0; i < 8; i++) {
-            initializationVector[8 + i] = (byte) accessNumber;
+        for (int i = 8; i < initializationVector.length; i++) {
+            initializationVector[i] = (byte) accessNumber;
         }
 
         return initializationVector;
