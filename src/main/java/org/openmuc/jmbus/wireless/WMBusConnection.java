@@ -16,6 +16,8 @@ import org.openmuc.jrxtx.StopBits;
 
 /**
  * A Wireless Mbus Connection.
+ * 
+ * @see #addKey(SecondaryAddress, byte[])
  */
 public interface WMBusConnection extends AutoCloseable {
 
@@ -30,9 +32,11 @@ public interface WMBusConnection extends AutoCloseable {
      * messages when a wireless M-Bus message is been decoded.
      * 
      * @param address
-     *            the secondary address
+     *            the secondary address.
      * @param key
-     *            the cryptographic key
+     *            the cryptographic key.
+     * 
+     * @see #removeKey(SecondaryAddress)
      */
     void addKey(SecondaryAddress address, byte[] key);
 
@@ -40,7 +44,9 @@ public interface WMBusConnection extends AutoCloseable {
      * Removes the stored key for the given secondary address.
      * 
      * @param address
-     *            the secondary address for which to remove the stored key
+     *            the secondary address for which to remove the stored key.
+     * 
+     * @see #addKey(SecondaryAddress, byte[])
      */
     void removeKey(SecondaryAddress address);
 

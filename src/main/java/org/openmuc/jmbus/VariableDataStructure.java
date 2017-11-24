@@ -83,12 +83,7 @@ public class VariableDataStructure {
                 decodeDataRecords(buffer, offset + 1, length - 1);
                 break;
             case 0x7a: /* short header */
-                int len = length - 5;
-                int offs = offset + 5;
-
-                decodeShortHeader(buffer, offset + 1);
-                offs = decryptShortHeaderVDR(len, offs);
-                decodeDataRecords(buffer, offs, len);
+                decodeWithShortHeader();
                 break;
             case 0x8d: /* ELL */
                 decodeExtendedLinkLayer(buffer, offset + 1); // 6 bytes header + CRC
@@ -127,17 +122,33 @@ public class VariableDataStructure {
         decoded = true;
     }
 
-    private int decryptShortHeaderVDR(int len, int offs) throws DecodingException {
-        if (encryptionMode == EncryptionMode.AES_CBC_IV) {
-            vdr = new byte[len];
-            System.arraycopy(buffer, offs, vdr, 0, numberOfEncryptedBlocks * 16);
-            decryptMessage(getKey());
-            offs = 0;
+    private void decodeWithShortHeader() throws DecodingException {
+        decodeShortHeader(buffer, offset + 1);
+        if (encryptionMode == EncryptionMode.NONE) {
+            decodeDataRecords(buffer, offset + 5, length - 5);
         }
-        else if (encryptionMode != EncryptionMode.NONE) {
+        else if (encryptionMode == EncryptionMode.AES_CBC_IV) {
+            decryptAesCbcIv(buffer, offset + 5, numberOfEncryptedBlocks * 16);
+        }
+        else {
             throw new DecodingException("Unsupported encryption mode used: " + encryptionMode);
         }
-        return offs;
+    }
+
+    private void decryptAesCbcIv(byte[] buffer, int offset, int encryptedDataLength) throws DecodingException {
+        final int len = length - 5;
+        vdr = new byte[len];
+        System.arraycopy(buffer, offset, vdr, 0, encryptedDataLength);
+
+        byte[] key = keyMap.get(linkLayerSecondaryAddress);
+        if (key == null) {
+            String msg = MessageFormat.format(
+                    "Unable to decode encrypted payload. \nSecondary address key was not registered: \n{0}",
+                    linkLayerSecondaryAddress);
+            throw new DecodingException(msg);
+        }
+
+        decodeDataRecords(decryptMessage(key), 0, len);
     }
 
     private void decodeLongHeaderData() throws DecodingException {

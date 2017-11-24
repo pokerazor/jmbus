@@ -10,6 +10,7 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.TreeMap;
 
 import javax.xml.bind.DatatypeConverter;
@@ -36,8 +37,8 @@ class ConsoleLineParser {
 
     private static final int WILDCARD_MASK_LENGTH = 8;
 
-    private static SecondaryAddress secondaryAddressValue;
-    private static int primaryAddressValue;
+    private SecondaryAddress secondaryAddressValue;
+    private int primaryAddressValue;
     private static byte[] difValue = {};
     private static byte[] vifValue = {};
     private static byte[] dataValue = {};
@@ -182,7 +183,13 @@ class ConsoleLineParser {
                     this.cliPrinter.printError("Using wmbus with tcp is not possible, yet.", false);
                     break;
                 }
-                WMBusStart.wmbus((WMBusConnection) builder.build());
+                WMBusConnection wmBusConnection = (WMBusConnection) builder.build();
+                Map<SecondaryAddress, byte[]> keyPairs = getKeyPairs();
+                for (Entry<SecondaryAddress, byte[]> keyPair : keyPairs.entrySet()) {
+                    wmBusConnection.addKey(keyPair.getKey(), keyPair.getValue());
+                }
+
+                WMBusStart.wmbus(wmBusConnection);
                 break;
             default:
                 this.cliPrinter.printError("Unknown group: " + cliParser.getSelectedGroup().toLowerCase(), true);
@@ -199,10 +206,10 @@ class ConsoleLineParser {
 
     private Builder<?, ?> newBuilder() {
         switch (comPortType) {
-        case SERIAL:
-            return newSerialBuilder();
         case TCP:
             return newTcpBuilder();
+
+        case SERIAL:
         default:
             return newSerialBuilder();
         }
@@ -259,12 +266,12 @@ class ConsoleLineParser {
         return port;
     }
 
-    public int getPrimaryAddress() {
-        return primaryAddressValue;
-    }
-
     public SecondaryAddress getSecondaryAddress() {
         return secondaryAddressValue;
+    }
+
+    public int getPrimaryAddress() {
+        return primaryAddressValue;
     }
 
     public byte[] getDif() {

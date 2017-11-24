@@ -1,7 +1,7 @@
 
 project.ext {
 
-  cfgVersion = "3.0.0"
+  cfgVersion = "3.0.1"
   
   cfgGroup = "org.openmuc"
 
@@ -51,7 +51,7 @@ tasks.withType(Tar) {
       exclude "**/bin/**"
       exclude "**/.project"
       exclude "**/.classpath"
-      exclude ".gradle/"
+      exclude "**/.gradle/"
       exclude "**/.settings/"
     }
 

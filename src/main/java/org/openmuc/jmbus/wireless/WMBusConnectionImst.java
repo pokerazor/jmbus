@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.nio.ByteBuffer;
 import java.text.MessageFormat;
+import java.util.Arrays;
 
 import javax.xml.bind.DatatypeConverter;
 
@@ -36,7 +37,13 @@ class WMBusConnectionImst extends AbstractWMBusConnection {
             try {
 
                 while (!isClosed()) {
-                    task();
+                    try {
+                        task();
+                    } catch (InterruptedIOException e) {
+                        // ignore a timeout..
+                    } catch (HciMessageException e) {
+                        super.notifyDiscarded(e.getData());
+                    }
                 }
 
             } catch (IOException e) {
@@ -44,7 +51,7 @@ class WMBusConnectionImst extends AbstractWMBusConnection {
                     return;
                 }
 
-                super.notifyStoppedListening(new IOException(e));
+                super.notifyStoppedListening(e);
             } finally {
                 close();
                 super.shutdown();
@@ -52,29 +59,31 @@ class WMBusConnectionImst extends AbstractWMBusConnection {
         }
 
         private void task() throws IOException {
-            HciMessage hciMessage;
-            while (true) {
-                hciMessage = HciMessage.decode(this.transportLayer);
+            HciMessage hciMessage = readHciMsg();
 
-                if (hciMessage.payload().length > 1) {
-                    if (hciMessage.payload()[1] == MBUS_BL_CONTROL) {
-                        break;
-                    }
-                    else {
-                        discard(hciMessage);
-                    }
-                }
-                else {
-                    // No payload, most a response
-                }
-            }
-
-            final byte[] wmbusMessage = hciMessage.payload();
-            final int signalStrengthInDBm = hciMessage.rSSI();
+            final byte[] wmbusMessage = hciMessage.getPayload();
+            final int signalStrengthInDBm = hciMessage.getRSSI();
             try {
                 super.notifyNewMessage(WMBusMessage.decode(wmbusMessage, signalStrengthInDBm, keyMap));
             } catch (DecodingException e) {
                 super.notifyDiscarded(wmbusMessage);
+            }
+        }
+
+        private HciMessage readHciMsg() throws IOException {
+            while (true) {
+                HciMessage hciMessage = HciMessage.decode(this.transportLayer);
+
+                if (hciMessage.getPayload().length <= 1) {
+                    continue;
+                }
+
+                if (hciMessage.getPayload()[1] == MBUS_BL_CONTROL) {
+                    return hciMessage;
+                }
+                else {
+                    discard(hciMessage);
+                }
             }
         }
 
@@ -130,42 +139,39 @@ class WMBusConnectionImst extends AbstractWMBusConnection {
             ++numOfPackages;
         }
 
-        if (numOfPackages <= Const.MAX_PACKAGES) {
-
-            for (int i = 0; i < numOfPackages; ++i) {
-                int payloadSendLength = Const.MAX_SINGLE_PAYLOAD_SIZE;
-                if (numOfPackages - i == 1) {
-                    payloadSendLength = lengthPayloadAll - (numOfPackages - 1) * Const.MAX_SINGLE_PAYLOAD_SIZE;
-                }
-                byte[] payloadSend = new byte[payloadSendLength];
-                System.arraycopy(payload, i * payloadSendLength, payloadSend, 0, payloadSendLength);
-
-                byte controlField_EndpointField = (byte) ((controlField << 4) | endpointId & 0xff);
-                byte[] hciHeader = { Const.START_OF_FRAME, controlField_EndpointField, msgId,
-                        (byte) payloadSendLength };
-
-                byte[] hciMessage = new byte[Const.HCI_HEADER_LENGTH + payloadSendLength];
-                System.arraycopy(hciHeader, 0, hciMessage, 0, hciHeader.length);
-                System.arraycopy(payloadSend, 0, hciMessage, hciHeader.length, payloadSend.length);
-
-                try {
-                    getOutputStream().write(hciMessage);
-                } catch (IOException e) {
-                    return false;
-                }
-            }
-            return true;
-        }
-        else {
+        if (numOfPackages > Const.MAX_PACKAGES) {
             return false;
         }
+
+        for (int i = 0; i < numOfPackages; ++i) {
+            int payloadSendLength = Const.MAX_SINGLE_PAYLOAD_SIZE;
+            if (numOfPackages - i == 1) {
+                payloadSendLength = lengthPayloadAll - (numOfPackages - 1) * Const.MAX_SINGLE_PAYLOAD_SIZE;
+            }
+            byte[] payloadSend = new byte[payloadSendLength];
+            System.arraycopy(payload, i * payloadSendLength, payloadSend, 0, payloadSendLength);
+
+            byte controlField_EndpointField = (byte) ((controlField << 4) | endpointId & 0xff);
+            byte[] hciHeader = { Const.START_OF_FRAME, controlField_EndpointField, msgId, (byte) payloadSendLength };
+
+            byte[] hciMessage = new byte[Const.HCI_HEADER_LENGTH + payloadSendLength];
+            System.arraycopy(hciHeader, 0, hciMessage, 0, hciHeader.length);
+            System.arraycopy(payloadSend, 0, hciMessage, hciHeader.length, payloadSend.length);
+
+            try {
+                getOutputStream().write(hciMessage);
+            } catch (IOException e) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
      * Writes a reset command to the IMST module
      */
     public void reset() {
-        writeCommand(Const.DEVMGMT_MSG_FACTORY_RESET_REQ, Const.DEVMGMT_ID, new byte[] {});
+        writeCommand(Const.DEVMGMT_MSG_FACTORY_RESET_REQ, Const.DEVMGMT_ID, new byte[0]);
     }
 
     /**
@@ -235,7 +241,6 @@ class WMBusConnectionImst extends AbstractWMBusConnection {
     }
 
     /**
-     * <br>
      * <li><tt>HCI Message</tt>
      * <ul>
      * <li>StartOfFrame 8 Bit: 0xA5
@@ -295,18 +300,14 @@ class WMBusConnectionImst extends AbstractWMBusConnection {
             }
 
             transportLayer.setTimeout(MESSAGE_FRAGEMENT_TIMEOUT);
-            try {
-                // this may time out.
-                b1 = is.readByte();
-            } catch (InterruptedIOException e) {
-                throw new IOException();
-            }
+            // this may time out.
+            b1 = is.readByte();
 
             byte controlField = (byte) ((b1 >> 4) & 0x0F);
             byte endpointId = (byte) (b1 & 0x0F);
 
             byte msgId = is.readByte();
-            byte length = is.readByte();
+            int length = is.readUnsignedByte();
 
             byte[] payload = readPayload(is, length);
 
@@ -330,11 +331,17 @@ class WMBusConnectionImst extends AbstractWMBusConnection {
             return new HciMessage(controlField, endpointId, msgId, length, payload, timeStamp, rSSI, fCS);
         }
 
-        private static byte[] readPayload(DataInputStream is, byte length) throws IOException {
+        private static byte[] readPayload(DataInputStream is, final int length) throws IOException {
             byte[] payload = new byte[length + 1];
-            payload[0] = length;
+            payload[0] = (byte) length;
 
-            is.read(payload, 1, length);
+            int readLength = is.read(payload, 1, length);
+
+            if (readLength != length) {
+                byte[] data = Arrays.copyOfRange(payload, 1, 1 + readLength);
+                throw new HciMessageException(data);
+            }
+
             return payload;
         }
 
@@ -363,11 +370,11 @@ class WMBusConnectionImst extends AbstractWMBusConnection {
             return String.format("%02X", b);
         }
 
-        public byte[] payload() {
+        public byte[] getPayload() {
             return payload;
         }
 
-        public int rSSI() {
+        public int getRSSI() {
             return rSSI;
         }
 

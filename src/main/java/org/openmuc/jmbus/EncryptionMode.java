@@ -8,7 +8,13 @@ package org.openmuc.jmbus;
 import java.util.HashMap;
 import java.util.Map;
 
-enum EncryptionMode {
+/**
+ * The encryption modes.
+ */
+public enum EncryptionMode {
+    /**
+     * No encryption.
+     */
     NONE(0),
     /**
      * AES with Counter Mode (CTR) noPadding and IV.
