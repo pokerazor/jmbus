@@ -1,7 +1,7 @@
 
 project.ext {
 
-  cfgVersion = "2.3.0"
+  cfgVersion = "3.0.0"
   
   cfgGroup = "org.openmuc"
 
@@ -34,21 +34,25 @@ tasks.withType(Tar) {
 
   into(project.name) {
     from("./") {
-      include "build.gradle"
-      include "configuration.gradle"
+      include "*.gradle"
       include "license/**"
-      include "doc/CHANGELOG.txt"
+      include "doc/**"
       include "run-scripts/**"
-      include "gradle/wrapper/**"
-      include "gradlew"
-      include "gradlew.bat"
+      include "gradle/**"
+      include "gradlew*"
       include "build/libs-all/**"
       include "dependencies/**"
       include "src/**"
+      include "cli-app/**"
     }
 
     if (name.equals("tar") ){
       exclude "**/dependencies/**/src"
+      exclude "**/bin/**"
+      exclude "**/.project"
+      exclude "**/.classpath"
+      exclude ".gradle/"
+      exclude "**/.settings/"
     }
 
   }
@@ -86,6 +90,8 @@ repositories {
 
 dependencies {
   compile group: "org.openmuc", name: "jrxtx", version: "1.0.0"
+  
+  testCompile group: 'pl.pragmatists', name: 'JUnitParams', version: '1.1.0'
 }
 
 jar {

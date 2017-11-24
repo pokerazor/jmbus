@@ -1,6 +1,8 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.openmuc.jmbus;
 
 import java.io.ByteArrayInputStream;
@@ -8,6 +10,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+import javax.xml.bind.DatatypeConverter;
+
+/**
+ * This class represents a secondary address. Use the static initalizer to initialize the
+ */
 public class SecondaryAddress implements Comparable<SecondaryAddress> {
 
     private static final int SECONDARY_ADDRESS_LENGTH = 8;
@@ -18,23 +25,51 @@ public class SecondaryAddress implements Comparable<SecondaryAddress> {
     private final DeviceType deviceType;
     private final byte[] bytes;
     private final int hashCode;
+    private final boolean isLongHeader;
 
-    public static SecondaryAddress getFromLongHeader(byte[] buffer, int offset) {
+    /**
+     * Instantiate a new secondary address within a long header.
+     * 
+     * @param buffer
+     *            the byte buffer.
+     * @param offset
+     *            the offset.
+     * @return a new secondary address.
+     */
+    public static SecondaryAddress newFromLongHeader(byte[] buffer, int offset) {
         return new SecondaryAddress(buffer, offset, true);
     }
 
-    public static SecondaryAddress getFromWMBusLinkLayerHeader(byte[] buffer, int offset) {
+    /**
+     * Instantiate a new secondary address within a wireless M-Bus link layer header.
+     * 
+     * @param buffer
+     *            the byte buffer.
+     * @param offset
+     *            the offset.
+     * @return a new secondary address.
+     */
+    public static SecondaryAddress newFromWMBusLlHeader(byte[] buffer, int offset) {
         return new SecondaryAddress(buffer, offset, false);
     }
 
-    public static SecondaryAddress getFromHexString(String hexString) throws NumberFormatException {
-        byte[] buffer = HexConverter.fromShortHexString(hexString);
-        return new SecondaryAddress(buffer, 0, true);
-    }
-
-    public static SecondaryAddress getFromManufactureId(byte[] idNumber, String manufactureId, byte version, byte media)
+    /**
+     * Instantiate a new secondary address for a manufacturer ID.
+     * 
+     * @param idNumber
+     *            ID number.
+     * @param manufactureId
+     *            manufacturer ID.
+     * @param version
+     *            the version.
+     * @param media
+     *            the media.
+     * @return a new secondary address.
+     * @throws NumberFormatException
+     *             if the idNumber is not long enough.
+     */
+    public static SecondaryAddress newFromManufactureId(byte[] idNumber, String manufactureId, byte version, byte media)
             throws NumberFormatException {
-
         if (idNumber.length != SECONDARY_ADDRESS_LENGTH) {
             throw new NumberFormatException("Wrong length of ID. Length must be 8 byte.");
         }
@@ -49,10 +84,20 @@ public class SecondaryAddress implements Comparable<SecondaryAddress> {
         return new SecondaryAddress(buffer, 0, true);
     }
 
+    /**
+     * The {@link SecondaryAddress} as byte array.
+     * 
+     * @return the byte array (octet string) representation.
+     */
     public byte[] asByteArray() {
         return bytes;
     }
 
+    /**
+     * Get the manufacturer ID.
+     * 
+     * @return the ID.
+     */
     public String getManufacturerId() {
         return manufacturerId;
     }
@@ -75,13 +120,22 @@ public class SecondaryAddress implements Comparable<SecondaryAddress> {
         return deviceType;
     }
 
+    /**
+     * Get the version.
+     * 
+     * @return the version.
+     */
     public int getVersion() {
         return version;
     }
 
+    public boolean isLongHeader() {
+        return isLongHeader;
+    }
+
     @Override
     public String toString() {
-        StringBuilder builder = new StringBuilder().append("manufacturer ID: ")
+        return new StringBuilder().append("manufacturer ID: ")
                 .append(manufacturerId)
                 .append(", device ID: ")
                 .append(deviceId)
@@ -89,10 +143,9 @@ public class SecondaryAddress implements Comparable<SecondaryAddress> {
                 .append(version)
                 .append(", device type: ")
                 .append(deviceType)
-                .append(", as bytes: ");
-
-        HexConverter.appendShortHexString(builder, bytes, 0, bytes.length);
-        return builder.toString();
+                .append(", as bytes: ")
+                .append(DatatypeConverter.printHexBinary(bytes))
+                .toString();
     }
 
     @Override
@@ -116,14 +169,11 @@ public class SecondaryAddress implements Comparable<SecondaryAddress> {
         return Integer.compare(hashCode(), sa.hashCode());
     }
 
-    public static final int compare(SecondaryAddress a, SecondaryAddress b) {
-        return a.compareTo(b);
-    }
-
     private SecondaryAddress(byte[] buffer, int offset, boolean longHeader) {
         this.bytes = Arrays.copyOfRange(buffer, offset, offset + SECONDARY_ADDRESS_LENGTH);
 
-        hashCode = Arrays.hashCode(this.bytes);
+        this.hashCode = Arrays.hashCode(this.bytes);
+        this.isLongHeader = longHeader;
 
         try (ByteArrayInputStream is = new ByteArrayInputStream(this.bytes)) {
             if (longHeader) {
@@ -134,8 +184,8 @@ public class SecondaryAddress implements Comparable<SecondaryAddress> {
                 this.manufacturerId = decodeManufacturerId(is);
                 this.deviceId = decodeDeviceId(is);
             }
-            version = is.read() & 0xff;
-            deviceType = DeviceType.getInstance(is.read() & 0xff);
+            this.version = is.read() & 0xff;
+            this.deviceType = DeviceType.getInstance(is.read() & 0xff);
         } catch (IOException e) {
             // should not occur
             throw new RuntimeException(e);
@@ -149,11 +199,11 @@ public class SecondaryAddress implements Comparable<SecondaryAddress> {
         char c1 = (char) ((manufacturerIdAsInt & 0x1f) + 64);
         manufacturerIdAsInt = (manufacturerIdAsInt >> 5);
         char c2 = (char) ((manufacturerIdAsInt & 0x1f) + 64);
-        return "" + c2 + c1 + c;
+
+        return new StringBuilder().append(c2).append(c1).append(c).toString();
     }
 
     private static byte[] encodeManufacturerId(String manufactureId) {
-
         if (manufactureId.length() != 3) {
             return new byte[] { 0, 0 };
         }
@@ -169,8 +219,13 @@ public class SecondaryAddress implements Comparable<SecondaryAddress> {
     }
 
     private static Bcd decodeDeviceId(ByteArrayInputStream is) throws IOException {
-        byte[] idArray = new byte[4];
-        is.read(idArray);
+        int msgSize = 4;
+        byte[] idArray = new byte[msgSize];
+        int actual = is.read(idArray);
+
+        if (msgSize != actual) {
+            throw new IOException("Failed to read BCD data. Data missing.");
+        }
         return new Bcd(idArray);
     }
 

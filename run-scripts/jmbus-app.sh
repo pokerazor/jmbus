@@ -1,7 +1,7 @@
 #!/bin/bash
 
-JARS_LOCATION="../build/libs-all"
-MAIN_CLASS="org.openmuc.jmbus.app.JmbusApp"
+JARS_LOCATION="../cli-app/build/libs-all"
+MAIN_CLASS="org.openmuc.jmbus.app.ConsoleApp"
 SYSPROPS=""
 PARAMS=""
 

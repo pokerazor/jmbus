@@ -1,168 +1,132 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.openmuc.jmbus;
 
-import org.junit.Assert;
+import static javax.xml.bind.DatatypeConverter.parseHexBinary;
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
+
+import java.util.Date;
+
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.openmuc.jmbus.DataRecord.DataValueType;
 import org.openmuc.jmbus.DataRecord.Description;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
+
+@RunWith(JUnitParamsRunner.class)
 public class DataRecordParserTest {
 
     @Test
-    public void testINT64() throws Exception {
+    @Parameters({ "0704FFFFFFFFFFFFFFFF, -1", "07041223344556677812, 1330927310113874706" })
+    public void decode1(String bytesStr, long expected) throws DecodingException {
+        byte[] bytes = parseHexBinary(bytesStr);
 
-        decode1();
+        long val = decodeAndGetVal(bytes);
 
-        decode2();
-
+        assertEquals(expected, val);
     }
 
-    private void decode2() throws DecodingException {
+    private static Long decodeAndGetVal(byte[] bytes) throws DecodingException {
         DataRecord dataRecord = new DataRecord();
-        byte[] bytes = new byte[] { (byte) 0x07, (byte) 0x04, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF,
-                (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF };
+        dataRecord.decode(bytes, 0, bytes.length);
+
+        Object obj = dataRecord.getDataValue();
+
+        assertThat(obj, instanceOf(Long.class));
+
+        return (Long) obj;
+    }
+
+    public Object testINT32Data() {
+        Object[] p1 = { parseHexBinary("0403e4050000"), 1508L };
+        Object[] p2 = { parseHexBinary("0403ffffffff"), -1L };
+        return new Object[] { p1, p2 };
+    }
+
+    @Test
+    @Parameters(method = "testINT32Data")
+    public void testINT32(byte[] bytes, long expectedVal) throws Exception {
+
+        DataRecord dataRecord = new DataRecord();
 
         dataRecord.decode(bytes, 0, bytes.length);
 
         Object obj = dataRecord.getDataValue();
 
-        Assert.assertEquals(obj instanceof Long, true);
+        assertThat(obj, instanceOf(Long.class));
 
-        Long val = (Long) obj;
+        assertEquals(DataValueType.LONG, dataRecord.getDataValueType());
 
-        Assert.assertEquals(Long.valueOf(-1l), val);
-    }
+        Long integer = (Long) obj;
 
-    private void decode1() throws DecodingException {
-        DataRecord dataRecord = new DataRecord();
-
-        byte[] bytes = new byte[] { (byte) 0x07, (byte) 0x04, (byte) 0x12, (byte) 0x23, (byte) 0x34, (byte) 0x45,
-                (byte) 0x56, (byte) 0x67, (byte) 0x78, (byte) 0x12 };
-
-        dataRecord.decode(bytes, 0, bytes.length);
-
-        Object obj = dataRecord.getDataValue();
-
-        Assert.assertEquals(obj instanceof Long, true);
-
-        Long val = (Long) obj;
-
-        Assert.assertEquals(Long.valueOf(1330927310113874706l), val);
-    }
-
-    @Test
-    public void testINT32() {
-
-        DataRecord dataRecord = new DataRecord();
-
-        byte[] bytes = new byte[] { (byte) 0x04, (byte) 0x03, (byte) 0xe4, (byte) 0x05, (byte) 0x00, (byte) 0x00 };
-
-        try {
-            dataRecord.decode(bytes, 0, bytes.length);
-
-            Object obj = dataRecord.getDataValue();
-
-            Assert.assertEquals(true, obj instanceof Long);
-
-            Long integer = (Long) obj;
-
-            Assert.assertEquals(Long.valueOf(1508), integer);
-
-        } catch (DecodingException e) {
-            Assert.fail("Failed to parse!");
-        }
-
-        dataRecord = new DataRecord();
-
-        bytes = new byte[] { (byte) 0x04, (byte) 0x03, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff };
-
-        try {
-            dataRecord.decode(bytes, 0, bytes.length);
-
-            Object obj = dataRecord.getDataValue();
-
-            Assert.assertEquals(true, obj instanceof Long);
-
-            Long integer = (Long) obj;
-
-            Assert.assertEquals(Long.valueOf(-1), integer);
-
-        } catch (DecodingException e) {
-            Assert.fail("Failed to parse!");
-        }
+        assertEquals(expectedVal, integer.longValue());
 
     }
 
-    private void assertParsingResults(byte[] bytes, Description desc, DlmsUnit unit, byte scaler, Object data)
-            throws DecodingException {
-
-        DataRecord dataRecord = new DataRecord();
-
-        dataRecord.decode(bytes, 0, bytes.length);
-
-        Assert.assertEquals(desc, dataRecord.getDescription());
-        Assert.assertEquals(unit, dataRecord.getUnit());
-        Assert.assertEquals(scaler, dataRecord.getMultiplierExponent());
-        Assert.assertEquals(data, dataRecord.getDataValue());
-    }
-
-    @Test
-    public void testDataRecords() throws DecodingException {
+    public Object testDataRecordsValues() throws DecodingException {
         /* e0000nnn Energy Wh */
-
-        byte[] bytes = new byte[] { (byte) 0x04, (byte) 0x07, (byte) 0xc8, (byte) 0x1e, (byte) 0x00, (byte) 0x00 };
-
-        assertParsingResults(bytes, Description.ENERGY, DlmsUnit.WATT_HOUR, (byte) 4, Long.valueOf(7880));
+        Object[] p1 = { "0407c81e0000", Description.ENERGY, DlmsUnit.WATT_HOUR, 4, 7880L };
 
         /* e0001nnn Energy J */
 
         /* e0010nnn Volume m^3 */
-        bytes = new byte[] { (byte) 0x04, (byte) 0x15, (byte) 0xfe, (byte) 0xbf, (byte) 0x00, (byte) 0x00 };
+        Object[] p2 = { "0415febf0000", Description.VOLUME, DlmsUnit.CUBIC_METRE, -1, 49150L };
 
-        assertParsingResults(bytes, Description.VOLUME, DlmsUnit.CUBIC_METRE, (byte) -1, Long.valueOf(49150));
-
-        bytes = new byte[] { (byte) 0x84, (byte) 0x40, (byte) 0x15, (byte) 0xf8, (byte) 0xbf, (byte) 0x00,
-                (byte) 0x00 };
-
-        assertParsingResults(bytes, Description.VOLUME, DlmsUnit.CUBIC_METRE, (byte) -1, Long.valueOf(49144));
+        Object[] p3 = { "844015f8bf0000", Description.VOLUME, DlmsUnit.CUBIC_METRE, -1, 49144L };
 
         /* e0011nnn Mass kg */
 
         /* e01000nn On Time seconds/minutes/hours/days */
-        bytes = new byte[] { (byte) 0x04, (byte) 0x22, (byte) 0x38, (byte) 0x09, (byte) 0x00, (byte) 0x00 };
 
-        assertParsingResults(bytes, Description.ON_TIME, DlmsUnit.HOUR, (byte) 0, Long.valueOf(2360));
+        Object[] p4 = { "042238090000", Description.ON_TIME, DlmsUnit.HOUR, 0, 2360L };
 
         /* e01001nn Operating Time seconds/minutes/hours/days */
-        bytes = new byte[] { (byte) 0x04, (byte) 0x26, (byte) 0x3d, (byte) 0x07, (byte) 0x00, (byte) 0x00 };
 
-        assertParsingResults(bytes, Description.OPERATING_TIME, DlmsUnit.HOUR, (byte) 0, Long.valueOf(1853));
+        Object[] p5 = { "04263d070000", Description.OPERATING_TIME, DlmsUnit.HOUR, 0, 1853L };
 
         /* e10110nn Flow Temperature °C */
-        bytes = new byte[] { (byte) 0x02, (byte) 0x5a, (byte) 0x79, (byte) 0x02 };
-
-        assertParsingResults(bytes, Description.FLOW_TEMPERATURE, DlmsUnit.DEGREE_CELSIUS, (byte) -1,
-                Long.valueOf((short) 633));
+        Object[] p6 = { "025a7902", Description.FLOW_TEMPERATURE, DlmsUnit.DEGREE_CELSIUS, -1, 633L };
 
         /* e10111nn Return Temperature °C */
-        bytes = new byte[] { (byte) 0x02, (byte) 0x5e, (byte) 0xa6, (byte) 0x01 };
-
-        assertParsingResults(bytes, Description.RETURN_TEMPERATURE, DlmsUnit.DEGREE_CELSIUS, (byte) -1,
-                Long.valueOf((short) 422));
+        Object[] p7 = { "025ea601", Description.RETURN_TEMPERATURE, DlmsUnit.DEGREE_CELSIUS, -1, 422L };
 
         /* e11000nn Temperature Difference K */
-        bytes = new byte[] { (byte) 0x02, (byte) 0x62, (byte) 0xd3, (byte) 0x00 };
 
-        assertParsingResults(bytes, Description.TEMPERATURE_DIFFERENCE, DlmsUnit.KELVIN, (byte) -1,
-                Long.valueOf((short) 211));
+        Object[] p8 = { "0262d300", Description.TEMPERATURE_DIFFERENCE, DlmsUnit.KELVIN, -1, 211L };
 
-        /* e1101101 Date and time - type F */
-        bytes = new byte[] { (byte) 0x04, (byte) 0x6d, (byte) 0x2b, (byte) 0x11, (byte) 0x78, (byte) 0x11 };
+        // /* e1101101 Date and time - type F */
+        Object[] p9 = { "046d2b117811", Description.DATE_TIME, null, 0, 1295887380035L };
+        return new Object[] { p1, p2, p3, p4, p5, p6, p7, p8, p9 };
+    }
+
+    @Test
+    @Parameters(method = "testDataRecordsValues")
+    public void testDataRecords(String bytesStr, Description desc, DlmsUnit unit, int scaler, Long data)
+            throws DecodingException {
+        byte[] bytes = parseHexBinary(bytesStr);
 
         DataRecord dataRecord = new DataRecord();
-
         dataRecord.decode(bytes, 0, bytes.length);
+
+        assertEquals(desc, dataRecord.getDescription());
+        assertEquals(unit, dataRecord.getUnit());
+        assertEquals(scaler, dataRecord.getMultiplierExponent());
+        Object dataValue = dataRecord.getDataValue();
+
+        if (dataValue instanceof Date) {
+            assertEquals(data, ((Date) dataValue).getTime(), 100);
+        }
+        else {
+            assertEquals(data, dataValue);
+        }
+
     }
 
 }

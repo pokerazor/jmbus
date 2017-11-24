@@ -1,37 +1,31 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.openmuc.jmbus;
+
+import static javax.xml.bind.DatatypeConverter.printHexBinary;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.text.MessageFormat;
 import java.util.LinkedList;
 import java.util.List;
 
-public class ScanSecondaryAddress {
+import org.openmuc.jmbus.MBusMessage.MessageType;
 
-    private final static int MAX_LENGTH = 16;
+class ScanSecondaryAddress {
+
+    private static final int MAX_LENGTH = 16;
     private static int pos = 0;
     private static byte[] value = new byte[MAX_LENGTH];
 
-    /**
-     * Scans for secondary addresses and returns all detected devices in a list and if SecondaryAddressListener not null
-     * to the listen listener.
-     * 
-     * @param mBusSap
-     *            the opened mBusSap
-     * @param wildcardMask
-     *            a wildcard mask for masking
-     * @param secondaryAddressListener
-     *            listener to get scan messages and scanned secondary address just at time.<br>
-     *            If null, all detected address will only returned if finished.
-     * 
-     * @return a list of secondary addresses of all detected devices
-     */
-    public static List<SecondaryAddress> scan(MBusSap mBusSap, String wildcardMask,
-            SecondaryAddressListener secondaryAddressListener) {
+    public static List<SecondaryAddress> scan(MBusConnection mBusConnection, String wildcardMask,
+            SecondaryAddressListener secondaryAddressListener) throws IOException {
 
-        boolean isListenerNull = secondaryAddressListener == null;
         List<SecondaryAddress> secondaryAddresses = new LinkedList<>();
 
         boolean stop = false;
@@ -51,26 +45,25 @@ public class ScanSecondaryAddress {
         value[pos] = 0;
 
         while (!stop) {
-            if (!isListenerNull && secondaryAddressListener.isScanMessageActive()) {
-                sendMessageToListener(secondaryAddressListener,
-                        "scan with wildcard: " + HexConverter.toShortHexString(toSendByteArray(value)));
-            }
-            SecondaryAddress secondaryAddessesWildCard = SecondaryAddress.getFromLongHeader(toSendByteArray(value), 0);
+            String msg = MessageFormat.format("scan with wildcard: {0}", printHexBinary(toSendByteArray(value)));
+            notifyScanMsg(secondaryAddressListener, msg);
+
+            SecondaryAddress secondaryAddessesWildCard = SecondaryAddress.newFromLongHeader(toSendByteArray(value), 0);
             SecondaryAddress readSecondaryAddress = null;
 
-            if (mBusSap.scanSelection(secondaryAddessesWildCard)) {
+            if (scanSelection(mBusConnection, secondaryAddessesWildCard)) {
 
                 try {
-                    readSecondaryAddress = mBusSap.read(0xfd).getSecondaryAddress();
+                    readSecondaryAddress = mBusConnection.read(0xfd).getSecondaryAddress();
 
                 } catch (InterruptedIOException e) {
-                    sendMessageToListener(secondaryAddressListener, "Read (REQ_UD2) TimeoutException");
+                    notifyScanMsg(secondaryAddressListener, "Read (REQ_UD2) TimeoutException");
                     collision = false;
                 } catch (IOException e) {
-                    sendMessageToListener(secondaryAddressListener, "Read (REQ_UD2) IOException / Collision");
+                    notifyScanMsg(secondaryAddressListener, "Read (REQ_UD2) IOException / Collision");
                     collision = true;
-
                 }
+
                 if (collision) {
                     if (pos < 7) {
                         ++pos;
@@ -83,18 +76,17 @@ public class ScanSecondaryAddress {
                 }
                 else {
                     if (readSecondaryAddress != null) {
-                        if (!isListenerNull && secondaryAddressListener.isScanMessageActive()) {
-                            sendMessageToListener(secondaryAddressListener,
-                                    "Detected Device:\n" + readSecondaryAddress.toString());
-                        }
+                        String message = "Detected Device:\n" + readSecondaryAddress.toString();
+                        notifyScanMsg(secondaryAddressListener, message);
                         secondaryAddresses.add(readSecondaryAddress);
-                        if (!isListenerNull) {
+                        if (secondaryAddressListener != null) {
                             secondaryAddressListener.newDeviceFound(readSecondaryAddress);
                         }
                         stop = handler();
                     }
                     else {
-                        sendMessageToListener(secondaryAddressListener,
+
+                        notifyScanMsg(secondaryAddressListener,
                                 "Problem to decode secondary address. Perhaps a collision.");
                         if (pos < 7) {
                             ++pos;
@@ -111,10 +103,51 @@ public class ScanSecondaryAddress {
                 stop = handler();
             }
         }
-        if (mBusSap != null) {
-            mBusSap.close();
+        if (mBusConnection != null) {
+            mBusConnection.close();
         }
         return secondaryAddresses;
+    }
+
+    /**
+     * Scans if any device response to the given wildcard.
+     * 
+     * @param mBusConnection
+     *            object to the open mbus connection
+     * 
+     * @param wildcard
+     *            secondary address wildcard e.g. f1ffffffffffffff
+     * @return true if any device responsed else false
+     * @throws IOException 
+     */
+    private static boolean scanSelection(MBusConnection mBusConnection, SecondaryAddress wildcard) throws IOException {
+        ByteBuffer bf = ByteBuffer.allocate(8);
+        byte[] ba = new byte[8];
+
+        bf.order(ByteOrder.LITTLE_ENDIAN);
+
+        bf.put(wildcard.asByteArray());
+
+        bf.position(0);
+        bf.get(ba, 0, 8);
+
+        mBusConnection.sendLongMessage(0xfd, 0x53, 0x52, 8, ba);
+
+        try {
+            MBusMessage mBusMessage = mBusConnection.receiveMessage();
+
+            return mBusMessage.getMessageType() == MessageType.SINGLE_CHARACTER;
+        } catch (InterruptedIOException e) {
+            return false;
+        } catch (IOException e) {
+            return true;
+        }
+    }
+
+    private static void notifyScanMsg(SecondaryAddressListener secondaryAddressListener, String message) {
+        if (secondaryAddressListener != null) {
+            secondaryAddressListener.newScanMessage(message);
+        }
     }
 
     private static boolean handler() {
@@ -183,12 +216,6 @@ public class ScanSecondaryAddress {
             flipped.append(value.charAt(i));
         }
         return flipped.toString();
-    }
-
-    private static void sendMessageToListener(SecondaryAddressListener secondaryAddressListener, String message) {
-        if (secondaryAddressListener != null && secondaryAddressListener.isScanMessageActive()) {
-            secondaryAddressListener.newScanMessage(message);
-        }
     }
 
     /**

@@ -1,4 +1,8 @@
-
+#-------------------------------------------------------------------------------
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#-------------------------------------------------------------------------------
 tty0tty - linux null modem emulator v1.2 
 
    Copyright (c) : 2013  Luis Claudio Gambôa Lopes and Maximiliano Pin max.pin@bitroit.com

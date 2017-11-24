@@ -1,6 +1,8 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.openmuc.jmbus;
 
 import java.util.HashMap;
@@ -8,7 +10,6 @@ import java.util.Map;
 
 /**
  * The units as defined in IEC 62056-6-2. Some units not defined in IEC 62056-6-2 but needed by M-Bus were added.
- * 
  */
 public enum DlmsUnit {
     // can be found in IEC 62056-6-2 2013 Capture 5.2.2

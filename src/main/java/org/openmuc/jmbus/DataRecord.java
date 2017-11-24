@@ -1,7 +1,11 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.openmuc.jmbus;
+
+import static javax.xml.bind.DatatypeConverter.printHexBinary;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -171,7 +175,7 @@ public class DataRecord {
 
     // DIB fields:
     private FunctionField functionField;
-    // private int dataField;
+
     private long storageNumber; // max is 41 bits
     private int tariff; // max 20 bits
     private short subunit; // max 10 bits
@@ -185,26 +189,15 @@ public class DataRecord {
     private boolean dateTypeF = false;
     private boolean dateTypeG = false;
 
+    int dataLength;
+
     int decode(byte[] buffer, int offset, int length) throws DecodingException {
         int i = offset;
 
-        // decode DIB
-        int ff = ((buffer[i] & 0x30) >> 4);
-        switch (ff) {
-        case 0:
-            functionField = FunctionField.INST_VAL;
-            break;
-        case 1:
-            functionField = FunctionField.MAX_VAL;
-            break;
-        case 2:
-            functionField = FunctionField.MIN_VAL;
-            break;
-        case 3:
-            functionField = FunctionField.ERROR_VAL;
-        }
+        decodeDib(buffer, i);
 
         int dataField = buffer[i] & 0x0f;
+        dataLength = dataField;
         storageNumber = (buffer[i] & 0x40) >> 6;
 
         subunit = 0;
@@ -228,25 +221,25 @@ public class DataRecord {
 
         int vif = buffer[i++] & 0xff;
 
-        boolean decodeFurtherVifes = false;
+        boolean decodeFurtherVifs = false;
 
         if (vif == 0xfb) {
             decodeAlternateExtendedVif(buffer[i]);
             if ((buffer[i] & 0x80) == 0x80) {
-                decodeFurtherVifes = true;
+                decodeFurtherVifs = true;
             }
             i++;
         }
         else if ((vif & 0x7f) == 0x7c) {
             i += decodeUserDefinedVif(buffer, i);
             if ((vif & 0x80) == 0x80) {
-                decodeFurtherVifes = true;
+                decodeFurtherVifs = true;
             }
         }
         else if (vif == 0xfd) {
             decodeMainExtendedVif(buffer[i]);
             if ((buffer[i] & 0x80) == 0x80) {
-                decodeFurtherVifes = true;
+                decodeFurtherVifs = true;
             }
             i++;
         }
@@ -256,11 +249,11 @@ public class DataRecord {
         else {
             decodeMainVif(vif);
             if ((vif & 0x80) == 0x80) {
-                decodeFurtherVifes = true;
+                decodeFurtherVifs = true;
             }
         }
 
-        if (decodeFurtherVifes) {
+        if (decodeFurtherVifs) {
             while ((buffer[i++] & 0x80) == 0x80) {
                 // TODO these vifes should not be ignored!
             }
@@ -305,7 +298,8 @@ public class DataRecord {
                         (buffer[i++] & 0xff) | ((buffer[i++] & 0xff) << 8) | ((buffer[i++] & 0xff) << 16) | 0xff << 24);
             }
             else {
-                dataValue = new Long((buffer[i++] & 0xff) | ((buffer[i++] & 0xff) << 8) | ((buffer[i++] & 0xff) << 16));
+                dataValue = Long
+                        .valueOf((buffer[i++] & 0xff) | ((buffer[i++] & 0xff) << 8) | ((buffer[i++] & 0xff) << 16));
             }
             dataValueType = DataValueType.LONG;
             break;
@@ -333,8 +327,8 @@ public class DataRecord {
                 dataValueType = DataValueType.DATE;
             }
             else {
-                dataValue = new Long((buffer[i++] & 0xff) | ((buffer[i++] & 0xff) << 8) | ((buffer[i++] & 0xff) << 16)
-                        | ((buffer[i++] & 0xff) << 24));
+                dataValue = Long.valueOf((buffer[i++] & 0xff) | ((buffer[i++] & 0xff) << 8)
+                        | ((buffer[i++] & 0xff) << 16) | ((buffer[i++] & 0xff) << 24));
                 dataValueType = DataValueType.LONG;
             }
             break;
@@ -345,21 +339,22 @@ public class DataRecord {
             dataValueType = DataValueType.DOUBLE;
             break;
         case 0x06: /* INT48 */
-            if ((buffer[i + 2] & 0x80) == 0x80) {
+            if ((buffer[i + 5] & 0x80) == 0x80) {
                 // negative
-                dataValue = new Long((buffer[i++] & 0xff) | ((buffer[i++] & 0xff) << 8) | ((buffer[i++] & 0xff) << 16)
-                        | ((buffer[i++] & 0xff) << 24) | (((long) buffer[i++] & 0xff) << 32)
-                        | (((long) buffer[i++] & 0xff) << 40) | (0xffl << 48) | (0xffl << 56));
+                dataValue = Long
+                        .valueOf((buffer[i++] & 0xff) | ((buffer[i++] & 0xff) << 8) | ((buffer[i++] & 0xff) << 16)
+                                | ((buffer[i++] & 0xff) << 24) | (((long) buffer[i++] & 0xff) << 32)
+                                | (((long) buffer[i++] & 0xff) << 40) | (0xffl << 48) | (0xffl << 56));
             }
             else {
-                dataValue = new Long((buffer[i++] & 0xff) | ((buffer[i++] & 0xff) << 8) | ((buffer[i++] & 0xff) << 16)
-                        | ((buffer[i++] & 0xff) << 24) | (((long) buffer[i++] & 0xff) << 32)
-                        | (((long) buffer[i++] & 0xff) << 40));
+                dataValue = Long.valueOf((buffer[i++] & 0xff) | ((buffer[i++] & 0xff) << 8)
+                        | ((buffer[i++] & 0xff) << 16) | ((buffer[i++] & 0xff) << 24)
+                        | (((long) buffer[i++] & 0xff) << 32) | (((long) buffer[i++] & 0xff) << 40));
             }
             dataValueType = DataValueType.LONG;
             break;
         case 0x07: /* INT64 */
-            dataValue = new Long((buffer[i++] & 0xff) | ((buffer[i++] & 0xff) << 8) | ((buffer[i++] & 0xff) << 16)
+            dataValue = Long.valueOf((buffer[i++] & 0xff) | ((buffer[i++] & 0xff) << 8) | ((buffer[i++] & 0xff) << 16)
                     | ((buffer[i++] & 0xff) << 24) | (((long) buffer[i++] & 0xff) << 32)
                     | (((long) buffer[i++] & 0xff) << 40) | (((long) buffer[i++] & 0xff) << 48)
                     | (((long) buffer[i++] & 0xff) << 56));
@@ -393,22 +388,22 @@ public class DataRecord {
         case 0x0d:
 
             int variableLength = buffer[i++] & 0xff;
-            int dataLength;
+            int dataLength0x0d;
 
             if (variableLength < 0xc0) {
-                dataLength = variableLength;
+                dataLength0x0d = variableLength;
             }
             else if ((variableLength >= 0xc0) && (variableLength <= 0xc9)) {
-                dataLength = 2 * (variableLength - 0xc0);
+                dataLength0x0d = 2 * (variableLength - 0xc0);
             }
             else if ((variableLength >= 0xd0) && (variableLength <= 0xd9)) {
-                dataLength = 2 * (variableLength - 0xd0);
+                dataLength0x0d = 2 * (variableLength - 0xd0);
             }
             else if ((variableLength >= 0xe0) && (variableLength <= 0xef)) {
-                dataLength = variableLength - 0xe0;
+                dataLength0x0d = variableLength - 0xe0;
             }
             else if (variableLength == 0xf8) {
-                dataLength = 4;
+                dataLength0x0d = 4;
             }
             else {
                 throw new DecodingException("Unsupported LVAR Field: " + variableLength);
@@ -419,22 +414,42 @@ public class DataRecord {
             // throw new DecodingException("Variable length (LVAR) field >= 0xc0: " + variableLength);
             // }
 
-            char rawData[] = new char[dataLength];
+            byte[] rawData = new byte[dataLength0x0d];
 
-            for (int j = 0; j < dataLength; j++) {
-                rawData[j] = (char) buffer[i + dataLength - 1 - j];
+            for (int j = 0; j < dataLength0x0d; j++) {
+                rawData[j] = buffer[i + dataLength0x0d - 1 - j];
             }
-            i += dataLength;
+            i += dataLength0x0d;
 
             dataValue = new String(rawData);
             dataValueType = DataValueType.STRING;
             break;
         default:
-            throw new DecodingException("Unknown Data Field in DIF: " + HexConverter.toHexString((byte) dataField));
+            String msg = String.format("Unknown Data Field in DIF: %02X.", dataField);
+            throw new DecodingException(msg);
         }
 
         return i;
+    }
 
+    private void decodeDib(byte[] buffer, int i) {
+        int ff = ((buffer[i] & 0x30) >> 4);
+        switch (ff) {
+        case 0:
+            functionField = FunctionField.INST_VAL;
+            break;
+        case 1:
+            functionField = FunctionField.MAX_VAL;
+            break;
+        case 2:
+            functionField = FunctionField.MIN_VAL;
+            break;
+        case 3:
+            functionField = FunctionField.ERROR_VAL;
+            break;
+        default:
+            this.functionField = null;
+        }
     }
 
     int encode(byte[] buffer, int offset) {
@@ -580,262 +595,294 @@ public class DataRecord {
         description = Description.NOT_SUPPORTED;
 
         if ((vif & 0x40) == 0) {
-            // E0
-            if ((vif & 0x20) == 0) {
-                // E00
-                if ((vif & 0x10) == 0) {
-                    // E000
-                    if ((vif & 0x08) == 0) {
-                        // E000 0
-                        description = Description.ENERGY;
-                        multiplierExponent = (vif & 0x07) - 3;
-                        unit = DlmsUnit.WATT_HOUR;
-                    }
-                    else {
-                        // E000 1
-                        description = Description.ENERGY;
-                        multiplierExponent = vif & 0x07;
-                        unit = DlmsUnit.JOULE;
-                    }
-                }
-                else {
-                    // E001
-                    if ((vif & 0x08) == 0) {
-                        // E001 0
-                        description = Description.VOLUME;
-                        multiplierExponent = (vif & 0x07) - 6;
-                        unit = DlmsUnit.CUBIC_METRE;
-                    }
-                    else {
-                        // E001 1
-                        description = Description.MASS;
-                        multiplierExponent = (vif & 0x07) - 3;
-                        unit = DlmsUnit.KILOGRAM;
-                    }
-                }
-            }
-            else {
-                // E01
-                if ((vif & 0x10) == 0) {
-                    // E010
-                    if ((vif & 0x08) == 0) {
-                        // E010 0
-                        if ((vif & 0x04) == 0) {
-                            // E010 00
-                            description = Description.ON_TIME;
-                        }
-                        else {
-                            // E010 01
-                            description = Description.OPERATING_TIME;
-                        }
-                        decodeTimeUnit(vif);
-                    }
-                    else {
-                        // E010 1
-                        description = Description.POWER;
-                        multiplierExponent = (vif & 0x07) - 3;
-                        unit = DlmsUnit.WATT;
-                    }
-                }
-                else {
-                    // E011
-                    if ((vif & 0x08) == 0) {
-                        // E011 0
-                        description = Description.POWER;
-                        multiplierExponent = vif & 0x07;
-                        unit = DlmsUnit.JOULE_PER_HOUR;
-                    }
-                    else {
-                        // E011 1
-                        description = Description.VOLUME_FLOW;
-                        multiplierExponent = (vif & 0x07) - 6;
-                        unit = DlmsUnit.CUBIC_METRE_PER_HOUR;
-                    }
-                }
-            }
+            decodeE0(vif);
         }
         else {
-            // E1
-            if ((vif & 0x20) == 0) {
-                // E10
-                if ((vif & 0x10) == 0) {
-                    // E100
-                    if ((vif & 0x08) == 0) {
-                        // E100 0
-                        description = Description.VOLUME_FLOW_EXT;
-                        multiplierExponent = (vif & 0x07) - 7;
-                        unit = DlmsUnit.CUBIC_METRE_PER_MINUTE;
-                    }
-                    else {
-                        // E100 1
-                        description = Description.VOLUME_FLOW_EXT;
-                        multiplierExponent = (vif & 0x07) - 9;
-                        unit = DlmsUnit.CUBIC_METRE_PER_SECOND;
-                    }
-                }
-                else {
-                    // E101
-                    if ((vif & 0x08) == 0) {
-                        // E101 0
-                        description = Description.MASS_FLOW;
-                        multiplierExponent = (vif & 0x07) - 3;
-                        unit = DlmsUnit.KILOGRAM_PER_HOUR;
-                    }
-                    else {
-                        // E101 1
-                        if ((vif & 0x04) == 0) {
-                            // E101 10
-                            description = Description.FLOW_TEMPERATURE;
-                            multiplierExponent = (vif & 0x03) - 3;
-                            unit = DlmsUnit.DEGREE_CELSIUS;
-                        }
-                        else {
-                            // E101 11
-                            description = Description.RETURN_TEMPERATURE;
-                            multiplierExponent = (vif & 0x03) - 3;
-                            unit = DlmsUnit.DEGREE_CELSIUS;
-                        }
-                    }
-                }
-            }
-            else {
-                // E11
-                if ((vif & 0x10) == 0) {
-                    // E110
-                    if ((vif & 0x08) == 0) {
-                        // E110 0
-                        if ((vif & 0x04) == 0) {
-                            // E110 00
-                            description = Description.TEMPERATURE_DIFFERENCE;
-                            multiplierExponent = (vif & 0x03) - 3;
-                            unit = DlmsUnit.KELVIN;
-                        }
-                        else {
-                            // E110 01
-                            description = Description.EXTERNAL_TEMPERATURE;
-                            multiplierExponent = (vif & 0x03) - 3;
-                            unit = DlmsUnit.DEGREE_CELSIUS;
-                        }
-                    }
-                    else {
-                        // E110 1
-                        if ((vif & 0x04) == 0) {
-                            // E110 10
-                            description = Description.PRESSURE;
-                            multiplierExponent = (vif & 0x03) - 3;
-                            unit = DlmsUnit.BAR;
-                        }
-                        else {
-                            // E110 11
-                            if ((vif & 0x02) == 0) {
-                                // E110 110
-                                if ((vif & 0x01) == 0) {
-                                    // E110 1100
-                                    description = Description.DATE;
-                                    dateTypeG = true;
-                                }
-                                else {
-                                    // E110 1101
-                                    description = Description.DATE_TIME;
-                                    dateTypeF = true;
-                                }
-                            }
-                            else {
-                                // E110 111
-                                if ((vif & 0x01) == 0) {
-                                    // E110 1110
-                                    description = Description.HCA;
-                                    unit = DlmsUnit.RESERVED;
-                                }
-                                else {
-                                    description = Description.NOT_SUPPORTED;
-                                }
-
-                            }
-
-                        }
-                    }
-                }
-                else {
-                    // E111
-                    if ((vif & 0x08) == 0) {
-                        // E111 0
-                        if ((vif & 0x04) == 0) {
-                            description = Description.AVERAGING_DURATION;
-                        }
-                        else {
-                            description = Description.ACTUALITY_DURATION;
-                        }
-                        decodeTimeUnit(vif);
-                    }
-                    else {
-                        // E111 1
-                        if ((vif & 0x04) == 0) {
-                            // E111 10
-                            if ((vif & 0x02) == 0) {
-                                // E111 100
-                                if ((vif & 0x01) == 0) {
-                                    // E111 1000
-                                    description = Description.FABRICATION_NO;
-                                }
-                                else {
-                                    // E111 1001
-                                    description = Description.EXTENDED_IDENTIFICATION;
-                                }
-                            }
-                            else {
-                                // E111 101
-                                if ((vif & 0x01) == 0) {
-                                    description = Description.ADDRESS;
-                                }
-                                else {
-                                    // E111 1011
-                                    // Codes used with extension indicator 0xFB (table 29 of DIN EN 13757-3:2011)
-                                    throw new IllegalArgumentException(
-                                            "Trying to decode a mainVIF even though it is an alternate extended vif");
-                                }
-                            }
-                        }
-                        else {
-                            // E111 11
-                            if ((vif & 0x02) == 0) {
-                                // E111 110
-                                if ((vif & 0x01) == 0) {
-                                    // E111 1100
-                                    // Extension indicator 0xFC: VIF is given in following string
-                                    description = Description.NOT_SUPPORTED;
-                                }
-                                else {
-                                    // E111 1101
-                                    // Extension indicator 0xFD: main VIFE-code extension table (table 28 of DIN EN
-                                    // 13757-3:2011)
-                                    throw new IllegalArgumentException(
-                                            "Trying to decode a mainVIF even though it is a main extended vif");
-
-                                }
-                            }
-                            else {
-                                // E111 111
-                                if ((vif & 0x01) == 0) {
-                                    // E111 1110
-                                    description = Description.FUTURE_VALUE;
-                                }
-                                else {
-                                    // E111 1111
-                                    description = Description.MANUFACTURER_SPECIFIC;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            decodeE1(vif);
 
         }
 
     }
 
+    private void decodeE1(int vif) {
+        // E1
+        if ((vif & 0x20) == 0) {
+            decodeE10(vif);
+        }
+        else {
+            decodeE11(vif);
+        }
+    }
+
+    private void decodeE11(int vif) {
+        // E11
+        if ((vif & 0x10) == 0) {
+            decodeE110(vif);
+        }
+        else {
+            decodeE111(vif);
+        }
+    }
+
+    private void decodeE111(int vif) {
+        // E111
+        if ((vif & 0x08) == 0) {
+            // E111 0
+            if ((vif & 0x04) == 0) {
+                description = Description.AVERAGING_DURATION;
+            }
+            else {
+                description = Description.ACTUALITY_DURATION;
+            }
+            decodeTimeUnit(vif);
+        }
+        else {
+            // E111 1
+            if ((vif & 0x04) == 0) {
+                // E111 10
+                if ((vif & 0x02) == 0) {
+                    // E111 100
+                    if ((vif & 0x01) == 0) {
+                        // E111 1000
+                        description = Description.FABRICATION_NO;
+                    }
+                    else {
+                        // E111 1001
+                        description = Description.EXTENDED_IDENTIFICATION;
+                    }
+                }
+                else {
+                    // E111 101
+                    if ((vif & 0x01) == 0) {
+                        description = Description.ADDRESS;
+                    }
+                    else {
+                        // E111 1011
+                        // Codes used with extension indicator 0xFB (table 29 of DIN EN 13757-3:2011)
+                        throw new IllegalArgumentException(
+                                "Trying to decode a mainVIF even though it is an alternate extended vif");
+                    }
+                }
+            }
+            else {
+                // E111 11
+                if ((vif & 0x02) == 0) {
+                    // E111 110
+                    if ((vif & 0x01) == 0) {
+                        // E111 1100
+                        // Extension indicator 0xFC: VIF is given in following string
+                        description = Description.NOT_SUPPORTED;
+                    }
+                    else {
+                        // E111 1101
+                        // Extension indicator 0xFD: main VIFE-code extension table (table 28 of DIN EN
+                        // 13757-3:2011)
+                        throw new IllegalArgumentException(
+                                "Trying to decode a mainVIF even though it is a main extended vif");
+
+                    }
+                }
+                else {
+                    // E111 111
+                    if ((vif & 0x01) == 0) {
+                        // E111 1110
+                        description = Description.FUTURE_VALUE;
+                    }
+                    else {
+                        // E111 1111
+                        description = Description.MANUFACTURER_SPECIFIC;
+                    }
+                }
+            }
+        }
+    }
+
+    private void decodeE110(int vif) {
+        // E110
+        if ((vif & 0x08) == 0) {
+            // E110 0
+            if ((vif & 0x04) == 0) {
+                // E110 00
+                description = Description.TEMPERATURE_DIFFERENCE;
+                multiplierExponent = (vif & 0x03) - 3;
+                unit = DlmsUnit.KELVIN;
+            }
+            else {
+                // E110 01
+                description = Description.EXTERNAL_TEMPERATURE;
+                multiplierExponent = (vif & 0x03) - 3;
+                unit = DlmsUnit.DEGREE_CELSIUS;
+            }
+        }
+        else {
+            // E110 1
+            if ((vif & 0x04) == 0) {
+                // E110 10
+                description = Description.PRESSURE;
+                multiplierExponent = (vif & 0x03) - 3;
+                unit = DlmsUnit.BAR;
+            }
+            else {
+                // E110 11
+                if ((vif & 0x02) == 0) {
+                    // E110 110
+                    if ((vif & 0x01) == 0) {
+                        // E110 1100
+                        description = Description.DATE;
+                        dateTypeG = true;
+                    }
+                    else {
+                        // E110 1101
+                        description = Description.DATE_TIME;
+                        dateTypeF = true;
+                    }
+                }
+                else {
+                    // E110 111
+                    if ((vif & 0x01) == 0) {
+                        // E110 1110
+                        description = Description.HCA;
+                        unit = DlmsUnit.RESERVED;
+                    }
+                    else {
+                        description = Description.NOT_SUPPORTED;
+                    }
+
+                }
+
+            }
+        }
+    }
+
+    private void decodeE10(int vif) {
+        // E10
+        if ((vif & 0x10) == 0) {
+            // E100
+            if ((vif & 0x08) == 0) {
+                // E100 0
+                description = Description.VOLUME_FLOW_EXT;
+                multiplierExponent = (vif & 0x07) - 7;
+                unit = DlmsUnit.CUBIC_METRE_PER_MINUTE;
+            }
+            else {
+                // E100 1
+                description = Description.VOLUME_FLOW_EXT;
+                multiplierExponent = (vif & 0x07) - 9;
+                unit = DlmsUnit.CUBIC_METRE_PER_SECOND;
+            }
+        }
+        else {
+            // E101
+            if ((vif & 0x08) == 0) {
+                // E101 0
+                description = Description.MASS_FLOW;
+                multiplierExponent = (vif & 0x07) - 3;
+                unit = DlmsUnit.KILOGRAM_PER_HOUR;
+            }
+            else {
+                // E101 1
+                if ((vif & 0x04) == 0) {
+                    // E101 10
+                    description = Description.FLOW_TEMPERATURE;
+                    multiplierExponent = (vif & 0x03) - 3;
+                    unit = DlmsUnit.DEGREE_CELSIUS;
+                }
+                else {
+                    // E101 11
+                    description = Description.RETURN_TEMPERATURE;
+                    multiplierExponent = (vif & 0x03) - 3;
+                    unit = DlmsUnit.DEGREE_CELSIUS;
+                }
+            }
+        }
+    }
+
+    private void decodeE0(int vif) {
+        // E0
+        if ((vif & 0x20) == 0) {
+            decodeE00(vif);
+        }
+        else {
+            decode01(vif);
+        }
+    }
+
+    private void decode01(int vif) {
+        // E01
+        if ((vif & 0x10) == 0) {
+            // E010
+            if ((vif & 0x08) == 0) {
+                // E010 0
+                if ((vif & 0x04) == 0) {
+                    // E010 00
+                    description = Description.ON_TIME;
+                }
+                else {
+                    // E010 01
+                    description = Description.OPERATING_TIME;
+                }
+                decodeTimeUnit(vif);
+            }
+            else {
+                // E010 1
+                description = Description.POWER;
+                multiplierExponent = (vif & 0x07) - 3;
+                unit = DlmsUnit.WATT;
+            }
+        }
+        else {
+            // E011
+            if ((vif & 0x08) == 0) {
+                // E011 0
+                description = Description.POWER;
+                multiplierExponent = vif & 0x07;
+                unit = DlmsUnit.JOULE_PER_HOUR;
+            }
+            else {
+                // E011 1
+                description = Description.VOLUME_FLOW;
+                multiplierExponent = (vif & 0x07) - 6;
+                unit = DlmsUnit.CUBIC_METRE_PER_HOUR;
+            }
+        }
+    }
+
+    private void decodeE00(int vif) {
+        // E00
+        if ((vif & 0x10) == 0) {
+            // E000
+            if ((vif & 0x08) == 0) {
+                // E000 0
+                description = Description.ENERGY;
+                multiplierExponent = (vif & 0x07) - 3;
+                unit = DlmsUnit.WATT_HOUR;
+            }
+            else {
+                // E000 1
+                description = Description.ENERGY;
+                multiplierExponent = vif & 0x07;
+                unit = DlmsUnit.JOULE;
+            }
+        }
+        else {
+            // E001
+            if ((vif & 0x08) == 0) {
+                // E001 0
+                description = Description.VOLUME;
+                multiplierExponent = (vif & 0x07) - 6;
+                unit = DlmsUnit.CUBIC_METRE;
+            }
+            else {
+                // E001 1
+                description = Description.MASS;
+                multiplierExponent = (vif & 0x07) - 3;
+                unit = DlmsUnit.KILOGRAM;
+            }
+        }
+    }
+
     // implements table 28 of DIN EN 13757-3:2013
-    private void decodeMainExtendedVif(byte vif) {
+    private void decodeMainExtendedVif(byte vif) throws DecodingException {
         if ((vif & 0x7f) == 0x0b) { // E000 1011
             description = Description.PARAMETER_SET_ID;
         }
@@ -913,19 +960,7 @@ public class DataRecord {
         }
         else if ((vif & 0x7c) == 0x24) { // E010 01nn
             description = Description.STORAGE_INTERVALL;
-            switch (vif & 0x03) {
-            case 0: // E010 0100
-                unit = DlmsUnit.SECOND;
-                break;
-            case 1: // E010 0101
-                unit = DlmsUnit.MIN;
-                break;
-            case 2: // E010 0110
-                unit = DlmsUnit.HOUR;
-                break;
-            case 3: // E010 0111
-                unit = DlmsUnit.DAY;
-            }
+            this.unit = unitFor(vif);
         }
         else if ((vif & 0x7f) == 0x28) { // E010 1000
             description = Description.STORAGE_INTERVALL;
@@ -944,19 +979,7 @@ public class DataRecord {
         }
         else if ((vif & 0x7c) == 0x2c) { // E010 11nn
             description = Description.DURATION_LAST_READOUT;
-            switch (vif & 0x03) {
-            case 0: // E010 1100
-                unit = DlmsUnit.SECOND;
-                break;
-            case 1: // E010 1101
-                unit = DlmsUnit.MIN;
-                break;
-            case 2: // E010 1110
-                unit = DlmsUnit.HOUR;
-                break;
-            case 3: // E010 1111
-                unit = DlmsUnit.DAY;
-            }
+            this.unit = unitFor(vif);
         }
         else if ((vif & 0x7c) == 0x30) { // E011 00nn
             description = Description.TARIF_DURATION;
@@ -964,31 +987,13 @@ public class DataRecord {
             case 0: // E011 0000
                 description = Description.NOT_SUPPORTED; // TODO: TARIF_START (Date/Time)
                 break;
-            case 1: // E011 0001
-                unit = DlmsUnit.MIN;
-                break;
-            case 2: // E011 0010
-                unit = DlmsUnit.HOUR;
-                break;
-            case 3: // E011 0011
-                unit = DlmsUnit.DAY;
+            default:
+                this.unit = unitFor(vif);
             }
         }
         else if ((vif & 0x7c) == 0x34) { // E011 01nn
             description = Description.TARIF_PERIOD;
-            switch (vif & 0x03) {
-            case 0: // E011 0100
-                unit = DlmsUnit.SECOND;
-                break;
-            case 1: // E011 0101
-                unit = DlmsUnit.MIN;
-                break;
-            case 2: // E011 0110
-                unit = DlmsUnit.HOUR;
-                break;
-            case 3: // E011 0111
-                unit = DlmsUnit.DAY;
-            }
+            this.unit = unitFor(vif);
         }
         else if ((vif & 0x7f) == 0x38) { // E011 1000
             description = Description.TARIF_PERIOD;
@@ -1034,35 +1039,11 @@ public class DataRecord {
         }
         else if ((vif & 0x7c) == 0x68) { // E110 10nn
             description = Description.LAST_CUMULATION_DURATION;
-            switch (vif & 0x03) {
-            case 0: // E110 1000
-                unit = DlmsUnit.HOUR;
-                break;
-            case 1: // E110 1001
-                unit = DlmsUnit.DAY;
-                break;
-            case 2: // E110 1010
-                unit = DlmsUnit.MONTH;
-                break;
-            case 3: // E110 1011
-                unit = DlmsUnit.YEAR;
-            }
+            this.unit = unitBiggerFor(vif);
         }
         else if ((vif & 0x7c) == 0x6c) { // E110 11nn
             description = Description.OPERATING_TIME_BATTERY;
-            switch (vif & 0x03) {
-            case 0: // E110 1100
-                unit = DlmsUnit.HOUR;
-                break;
-            case 1: // E110 1101
-                unit = DlmsUnit.DAY;
-                break;
-            case 2: // E110 1110
-                unit = DlmsUnit.MONTH;
-                break;
-            case 3: // E110 1111
-                unit = DlmsUnit.YEAR;
-            }
+            this.unit = unitBiggerFor(vif);
         }
         else if ((vif & 0x7f) == 0x70) { // E111 0000
             description = Description.NOT_SUPPORTED; // TODO: BATTERY_CHANGE_DATE_TIME
@@ -1091,6 +1072,38 @@ public class DataRecord {
         }
         else {
             description = Description.NOT_SUPPORTED;
+        }
+    }
+
+    private static DlmsUnit unitBiggerFor(byte vif) throws DecodingException {
+        int u = vif & 0x03;
+        switch (u) {
+        case 0: // E110 1100
+            return DlmsUnit.HOUR;
+        case 1: // E110 1101
+            return DlmsUnit.DAY;
+        case 2: // E110 1110
+            return DlmsUnit.MONTH;
+        case 3: // E110 1111
+            return DlmsUnit.YEAR;
+        default:
+            throw new DecodingException(String.format("Unknown unit 0x%02X.", u));
+        }
+    }
+
+    private static DlmsUnit unitFor(byte vif) throws DecodingException {
+        int u = vif & 0x03;
+        switch (u) {
+        case 0: // E010 1100
+            return DlmsUnit.SECOND;
+        case 1: // E010 1101
+            return DlmsUnit.MIN;
+        case 2: // E010 1110
+            return DlmsUnit.HOUR;
+        case 3: // E010 1111
+            return DlmsUnit.DAY;
+        default:
+            throw new DecodingException(String.format("Unknown unit 0x%02X.", u));
         }
     }
 
@@ -1294,12 +1307,13 @@ public class DataRecord {
                                     multiplierExponent = -1; // is -1 or 0 correct ??
                                     unit = DlmsUnit.DEGREE;
                                 }
-                                else {
-                                    // E010 1011
-                                    description = Description.PHASE;
-                                    multiplierExponent = -1; // is -1 or 0 correct ??
-                                    unit = DlmsUnit.DEGREE;
-                                }
+                                // TODO same
+                                // else {
+                                // // E010 1011
+                                // description = Description.PHASE;
+                                // multiplierExponent = -1; // is -1 or 0 correct ??
+                                // unit = DlmsUnit.DEGREE;
+                                // }
                             }
                         }
                         else {
@@ -1434,12 +1448,13 @@ public class DataRecord {
     @Override
     public String toString() {
 
-        StringBuilder builder = new StringBuilder();
+        StringBuilder builder = new StringBuilder().append("DIB:")
+                .append(printHexBinary(dib))
+                .append(", VIB:")
+                .append(printHexBinary(vib))
+                .append(" -> descr:")
+                .append(description);
 
-        builder.append("DIB:").append(HexConverter.toHexString(dib));
-        builder.append(", VIB:").append(HexConverter.toHexString(vib));
-
-        builder.append(" -> descr:").append(description);
         if (description == Description.USER_DEFINED) {
             builder.append(" :").append(getUserDefinedDescription());
         }
@@ -1457,28 +1472,31 @@ public class DataRecord {
             builder.append(", subunit:").append(subunit);
         }
 
+        final String valuePlacHolder = ", value:";
+        final String scaledValueString = ", scaled value:";
+
         switch (dataValueType) {
         case DATE:
         case STRING:
-            builder.append(", value:").append((dataValue).toString());
+            builder.append(valuePlacHolder).append((dataValue).toString());
             break;
         case DOUBLE:
-            builder.append(", scaled value:").append(getScaledDataValue());
+            builder.append(scaledValueString).append(getScaledDataValue());
             break;
         case LONG:
             if (multiplierExponent == 0) {
-                builder.append(", value:").append(dataValue);
+                builder.append(valuePlacHolder).append(dataValue);
             }
             else {
-                builder.append(", scaled value:").append(getScaledDataValue());
+                builder.append(scaledValueString).append(getScaledDataValue());
             }
             break;
         case BCD:
             if (multiplierExponent == 0) {
-                builder.append(", value:").append((dataValue).toString());
+                builder.append(valuePlacHolder).append((dataValue).toString());
             }
             else {
-                builder.append(", scaled value:").append(getScaledDataValue());
+                builder.append(scaledValueString).append(getScaledDataValue());
             }
             break;
         case NONE:
@@ -1495,6 +1513,10 @@ public class DataRecord {
 
         return builder.toString();
 
+    }
+
+    public int getDataLength() {
+        return dataLength;
     }
 
 }

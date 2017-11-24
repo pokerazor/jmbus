@@ -1,15 +1,13 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.openmuc.jmbus;
 
 /**
  * This class represents a binary-coded decimal (BCD) number as defined by the M-Bus standard. The class provides
  * methods to convert the BCD to other types such as <code>double</code>, <code>int</code> or <code>String</code>.
- * 
- * @author Stefan Feuerhahn
- * @author Michael Zillgith
- * 
  */
 public class Bcd extends Number {
 
@@ -21,10 +19,10 @@ public class Bcd extends Number {
      * internal storage of its value. It is therefore recommended not to change the byte array after construction.
      * 
      * @param bcdBytes
-     *            the byte array to be used for construction of the <code>Bcd</code>
+     *            the byte array to be used for construction of the <code>Bcd</code>.
      */
     public Bcd(byte[] bcdBytes) {
-        value = bcdBytes;
+        this.value = bcdBytes;
     }
 
     public byte[] getBytes() {
@@ -53,53 +51,21 @@ public class Bcd extends Number {
         return new String(bytes);
     }
 
-    /**
-     * Returns the value of this <code>Bcd</code> as a double.
-     */
     @Override
     public double doubleValue() {
         return longValue();
     }
 
-    /**
-     * Returns the value of this <code>Bcd</code> as a float.
-     */
     @Override
     public float floatValue() {
         return longValue();
     }
 
-    /**
-     * Returns the value of this <code>Bcd</code> as an int.
-     */
     @Override
     public int intValue() {
-        int result = 0;
-        int factor = 1;
-
-        for (int i = 0; i < (value.length - 1); i++) {
-            result += (value[i] & 0x0f) * factor;
-            factor = factor * 10;
-            result += ((value[i] >> 4) & 0x0f) * factor;
-            factor = factor * 10;
-        }
-
-        result += (value[value.length - 1] & 0x0f) * factor;
-        factor = factor * 10;
-
-        if ((value[value.length - 1] & 0xf0) == 0xf0) {
-            result = result * -1;
-        }
-        else {
-            result += ((value[value.length - 1] >> 4) & 0x0f) * factor;
-        }
-
-        return result;
+        return (int) longValue();
     }
 
-    /**
-     * Returns the value of this <code>Bcd</code> as a long.
-     */
     @Override
     public long longValue() {
         long result = 0l;

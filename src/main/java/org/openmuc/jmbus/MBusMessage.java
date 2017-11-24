@@ -1,6 +1,8 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.openmuc.jmbus;
 
 import java.io.IOException;
@@ -18,13 +20,12 @@ import java.io.IOException;
  * <li>CI field (1 byte) -</li>
  * <li>The APDU (Variable Data Response) -</li>
  * </ul>
- * 
  */
-class MBusMessage {
+public class MBusMessage {
 
     private static final int RSP_UD_HEADER_LENGTH = 6;
 
-    enum MessageType {
+    public enum MessageType {
         // the other message types (e.g. SND_NKE, REQ_UD2) cannot be sent from slave to master and are therefore
         // omitted.
         SINGLE_CHARACTER(0xE5),
@@ -44,7 +45,7 @@ class MBusMessage {
                     return messageType;
                 }
             }
-            throw new IOException("Unexpected first frame byte: " + HexConverter.toHexString(value));
+            throw new IOException(String.format("Unexpected first frame byte: 0x%02X.", value));
         }
     }
 
@@ -58,7 +59,7 @@ class MBusMessage {
         this.variableDataStructure = variableDataStructure;
     }
 
-    static MBusMessage decode(byte[] buffer, int length) throws IOException {
+    public static MBusMessage decode(byte[] buffer, int length) throws IOException {
         MessageType messageType = MessageType.messageTypeFor(buffer[0]);
         int addressField;
         VariableDataStructure variableDataStructure;
@@ -69,45 +70,43 @@ class MBusMessage {
             variableDataStructure = null;
             break;
         case RSP_UD:
-            int messageLength = buffer[1] & 0xff;
-
-            if (messageLength != length - RSP_UD_HEADER_LENGTH) {
-                throw new IOException(
-                        "Wrong length field in frame header does not match the buffer length. Length field: "
-                                + messageLength + ", buffer length: " + length + " !");
-            }
-
-            if (buffer[1] != buffer[2]) {
-                throw new IOException("Length fields are not identical in long frame!");
-            }
-
-            if (buffer[3] != MessageType.RSP_UD.value) {
-                throw new IOException("Fourth byte of long frame was not 0x68.");
-            }
-
-            int controlField = buffer[4] & 0xff;
-
-            if ((controlField & 0xcf) != 0x08) {
-                throw new IOException(
-                        "Unexpected control field value: " + HexConverter.toHexString((byte) controlField));
-            }
-
+            int messageLength = getLongFrameMessageLength(buffer, length);
+            checkLongFrameFields(buffer);
             addressField = buffer[5] & 0xff;
-
-            try {
-                variableDataStructure = new VariableDataStructure(buffer, RSP_UD_HEADER_LENGTH, messageLength, null,
-                        null);
-            } catch (DecodingException e) {
-                throw new IOException("Failed to decode variable data structure.");
-            }
+            variableDataStructure = new VariableDataStructure(buffer, RSP_UD_HEADER_LENGTH, messageLength, null, null);
             break;
-
         default:
             // should not occur.
             throw new RuntimeException("Case not supported " + messageType);
         }
 
         return new MBusMessage(messageType, addressField, variableDataStructure);
+    }
+
+    private static void checkLongFrameFields(byte[] buffer) throws IOException {
+        if (buffer[1] != buffer[2]) {
+            throw new IOException("Length fields are not identical in long frame!");
+        }
+
+        if (buffer[3] != MessageType.RSP_UD.value) {
+            throw new IOException("Fourth byte of long frame was not 0x68.");
+        }
+
+        int controlField = buffer[4] & 0xff;
+
+        if ((controlField & 0xcf) != 0x08) {
+            throw new IOException(String.format("Unexpected control field value: 0x%02X.", controlField));
+        }
+    }
+
+    private static int getLongFrameMessageLength(byte[] buffer, int length) throws IOException {
+        int messageLength = buffer[1] & 0xff;
+
+        if (messageLength != length - RSP_UD_HEADER_LENGTH) {
+            throw new IOException("Wrong length field in frame header does not match the buffer length. Length field: "
+                    + messageLength + ", buffer length: " + length + " !");
+        }
+        return messageLength;
     }
 
     public int getAddressField() {
